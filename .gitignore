@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+clinical_target_extraction/outputs/*
+!clinical_target_extraction/outputs/.gitkeep
+

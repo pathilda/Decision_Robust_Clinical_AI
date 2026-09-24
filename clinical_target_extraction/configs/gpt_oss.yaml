@@ -1,0 +1,13 @@
+model_label: gpt_oss
+model_id: openai/gpt-oss-120b
+served_model_name: extractor
+tokenizer_id: openai/gpt-oss-120b
+base_url: http://127.0.0.1:8000/v1
+api_key: local-vllm
+temperature: 0.0
+top_p: 1.0
+max_tokens: 6144
+seed: 20260924
+max_model_len: 32768
+structured_output_mode: response_format
+

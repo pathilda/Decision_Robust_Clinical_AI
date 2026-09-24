@@ -1,0 +1,33 @@
+TASK: CURRENT-SESSION TARGET ASSESSMENT
+
+You are analyzing session {{ current_session_index }}. Information from later sessions has not been provided and must not be inferred.
+
+First assess every registered target. For each target:
+
+1. Set substantively_treated to 1 only if the current note shows direct and meaningful therapeutic work on that target; otherwise set it to 0.
+2. Set performance_observed to 1 only if the current note contains interpretable performance evidence; otherwise set it to 0.
+3. Compare the current session separately with every prior session listed in PRIOR STRUCTURED RECORDS.
+4. For each prior session, set comparable=1 only when both sessions contain evaluable evidence about the same construct under sufficiently compatible conditions.
+5. If comparable=1, encode better, worse, or no meaningful difference. If comparable=0, set better=0 and worse=0.
+6. Quote brief exact evidence from the current and prior notes. Do not use lack of documentation as outcome evidence.
+
+After assessing all registered targets, identify legitimate new target candidates in the current note. A new candidate must be substantively treated, explicitly established as a goal, or supported by clear clinically relevant performance evidence. Do not propose a new target when it is an alias, subwording, example, or activity-specific version of an existing target.
+
+CLIENT_ID: {{ client_id }}
+CURRENT_SESSION_INDEX: {{ current_session_index }}
+CURRENT_NOTE_ID: {{ current_note_id }}
+
+<TARGET_REGISTRY>
+{{ target_registry_json }}
+</TARGET_REGISTRY>
+
+<PRIOR_STRUCTURED_RECORDS>
+{{ prior_outputs_json }}
+</PRIOR_STRUCTURED_RECORDS>
+
+<NOTES_THROUGH_CURRENT_SESSION>
+{{ notes_with_explicit_session_boundaries }}
+</NOTES_THROUGH_CURRENT_SESSION>
+
+Return JSON matching the LaterSessionOutput schema. Include every registered target exactly once. For every target, include every prior session index exactly once in comparisons.
+

@@ -1,0 +1,27 @@
+TASK: INITIAL TARGET DISCOVERY
+
+Analyze only the first clinical note shown below.
+
+Identify every distinct clinical treatment target that is substantively treated, explicitly established as a session goal, or supported by clear clinically relevant performance evidence.
+
+For each target:
+1. propose a concise canonical label;
+2. provide a one-sentence operational definition;
+3. list wording used in the note as aliases, when applicable;
+4. determine whether it was substantively treated;
+5. determine whether performance was observed/evaluable;
+6. provide short exact evidence excerpts;
+7. provide a brief rationale.
+
+Do not create targets from diagnoses, background history, incidental mentions, or future plans alone. Do not split a single underlying construct into multiple targets merely because it appeared in different activities.
+
+CLIENT_ID: {{ client_id }}
+SESSION_INDEX: 1
+NOTE_ID: {{ note_id }}
+
+<SESSION_1_NOTE>
+{{ note_text }}
+</SESSION_1_NOTE>
+
+Return JSON matching the Session1Output schema.
+
