@@ -4,13 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clinical-target-extraction"
-version = "0.2.0"
-description = "Sequential, auditable clinical-target extraction from de-identified notes"
+version = "0.4.0"
+description = "Rolling-profile, auditable clinical-target extraction from de-identified notes"
 requires-python = ">=3.10"
 dependencies = [
-  "openai>=1.40",
   "pandas>=2.0",
-  "pyarrow>=14",
   "pydantic>=2.7",
   "openpyxl>=3.1",
   "xlrd>=2.0",
@@ -20,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+parquet = ["pyarrow>=14"]
 
 [project.scripts]
 clinical-target-extraction = "clinical_target_extraction.src.cli:main"

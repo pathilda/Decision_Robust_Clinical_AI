@@ -1,4 +1,4 @@
-"""Load and render versioned plain-text prompt templates."""
+"""Load and render versioned prompt templates."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from .data import ClinicalNote
-from .registry import TargetRegistry
 
 
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
@@ -17,7 +16,6 @@ PROMPT_FILES = {
     "system": "system.txt",
     "session1": "session1.txt",
     "later_session": "later_session.txt",
-    "canonicalize": "canonicalize.txt",
 }
 PLACEHOLDER = re.compile(r"{{\s*([a-zA-Z0-9_]+)\s*}}")
 
@@ -42,14 +40,7 @@ def render(template: str, **values: Any) -> str:
         raise ValueError(
             f"Prompt values mismatch; missing={sorted(missing)}, extra={sorted(extra)}"
         )
-
-    def replacement(match: re.Match[str]) -> str:
-        return str(values[match.group(1)])
-
-    rendered = PLACEHOLDER.sub(replacement, template)
-    if PLACEHOLDER.search(rendered):
-        raise ValueError("Unrendered prompt placeholders remain")
-    return rendered
+    return PLACEHOLDER.sub(lambda match: str(values[match.group(1)]), template)
 
 
 def build_session1_prompt(template: str, note: ClinicalNote) -> str:
@@ -61,43 +52,22 @@ def build_session1_prompt(template: str, note: ClinicalNote) -> str:
     )
 
 
-def note_boundaries(notes: list[ClinicalNote]) -> str:
-    return "\n".join(
-        f'<SESSION index="{note.session_index}" note_id="{note.note_id}">\n'
-        f"{note.note_text}\n</SESSION>"
-        for note in notes
-    )
-
-
 def build_later_prompt(
     template: str,
-    registry: TargetRegistry,
-    notes_to_date: list[ClinicalNote],
-    prior_records: list[dict[str, Any]],
+    previous_profile: dict[str, Any],
+    current_note: ClinicalNote,
 ) -> str:
-    current = notes_to_date[-1]
+    """Provide exactly one prior JSON snapshot plus the current raw note."""
+
     return render(
         template,
-        client_id=current.client_id,
-        current_session_index=current.session_index,
-        current_note_id=current.note_id,
-        target_registry_json=json.dumps(
-            registry.model_dump(), indent=2, ensure_ascii=False
+        client_id=current_note.client_id,
+        current_session_index=current_note.session_index,
+        current_note_id=current_note.note_id,
+        previous_session_profile_json=json.dumps(
+            previous_profile,
+            ensure_ascii=False,
+            separators=(",", ":"),
         ),
-        prior_outputs_json=json.dumps(prior_records, indent=2, ensure_ascii=False),
-        notes_with_explicit_session_boundaries=note_boundaries(notes_to_date),
-    )
-
-
-def build_canonicalization_prompt(
-    template: str,
-    registry: TargetRegistry,
-    candidate: dict[str, Any],
-    current_note_text: str,
-) -> str:
-    return render(
-        template,
-        target_registry_json=json.dumps(registry.model_dump(), indent=2, ensure_ascii=False),
-        candidate_json=json.dumps(candidate, indent=2, ensure_ascii=False),
-        current_note_text=current_note_text,
+        current_note_text=current_note.note_text,
     )

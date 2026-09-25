@@ -3,7 +3,7 @@
 
 # Hugging Face model download and local GPU inference.
 huggingface-hub>=0.34
-# Exact pin prevents the Alliance 9999+dummy wheel from satisfying this dependency.
+# Exact pin prevents Alliance's OpenCV dummy wheel from satisfying this dependency.
 opencv-python-headless==4.13.0.92
 vllm==0.25.0
 tqdm>=4.66

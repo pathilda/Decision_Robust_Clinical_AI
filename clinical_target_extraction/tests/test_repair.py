@@ -20,29 +20,19 @@ class FakeModelClient:
 
 
 def test_invalid_output_gets_exactly_one_successful_repair(tmp_path) -> None:
-    note = ClinicalNote(
-        "C001",
-        1,
-        "N001",
-        "The client practiced two-step directions and completed 8 of 10.",
-    )
+    note = ClinicalNote("C001", 1, "N001", "The client completed 8 of 10.")
     valid = {
         "client_id": "C001",
         "session_index": 1,
         "note_id": "N001",
-        "targets": [
-            {
-                "proposed_label": "Following two-step directions",
-                "definition": "Completing two sequential spoken directions.",
-                "aliases_in_note": ["two-step directions"],
-                "substantively_treated": 1,
-                "performance_observed": 1,
-                "target_evidence": ["two-step directions"],
-                "treatment_evidence": ["practiced two-step directions"],
-                "performance_evidence": ["completed 8 of 10"],
-                "rationale": "Practice and accuracy are documented.",
-            }
-        ],
+        "targets": [{
+            "proposed_label": "Following two-step directions",
+            "definition": "Completing two sequential spoken directions.",
+            "aliases_in_note": ["two-step directions"],
+            "verbatim_evidence": ["completed 8 of 10"],
+            "substantively_treated": 1,
+            "performance_observed": 1,
+        }],
     }
     fake = FakeModelClient(["not json", json.dumps(valid)])
     store = OutputStore(tmp_path)
@@ -51,7 +41,7 @@ def test_invalid_output_gets_exactly_one_successful_repair(tmp_path) -> None:
         model_client=fake,  # type: ignore[arg-type]
         store=store,
         system_prompt="system",
-        task_prompt="task with original note",
+        task_prompt="task",
         schema=Session1Output,
         schema_name="Session1Output",
         validate_context=lambda value: validate_session1(value, note),
@@ -61,11 +51,11 @@ def test_invalid_output_gets_exactly_one_successful_repair(tmp_path) -> None:
     assert output.note_id == "N001"
     assert input_tokens == 100
     assert fake.calls == 2
-    audit_rows = [
+    rows = [
         json.loads(line)
         for line in (tmp_path / "raw_responses.jsonl").read_text(encoding="utf-8").splitlines()
     ]
-    assert [(row["attempt"], row["valid"]) for row in audit_rows] == [
+    assert [(row["attempt"], row["valid"]) for row in rows] == [
         ("initial", False),
         ("repair", True),
     ]

@@ -1,11 +1,13 @@
 # Sequential Clinical Target Extraction
 
 This repository processes de-identified clinical session notes in chronological order for each
-client. It extracts clinical targets, maintains a stable per-client target registry, compares
-later sessions with earlier sessions, validates structured output, and checkpoints results.
+client. Session 1 creates an initial target profile. Every later session receives only the
+immediately previous JSON profile plus the current note and emits the next complete profile.
+It records verbatim evidence, treatment and observation flags, adjacent-session change, stable
+target IDs, carry-forward state, and resumable checkpoints.
 
-Normal use goes through one file: `run.py`. You do not need to manually edit YAML files or start
-a separate vLLM server.
+Normal use goes through one file: `run.py`. Extraction loads vLLM directly in the Python process;
+it does not start an HTTP/API server.
 
 ## Input
 
@@ -39,7 +41,7 @@ Verify the environment:
 ```bash
 python --version
 nvidia-smi
-python -m vllm.entrypoints.openai.api_server --help
+python -c "from vllm import LLM; print('vLLM offline API is available')"
 python run.py --help
 ```
 
@@ -125,12 +127,12 @@ python run.py \
 This single command:
 
 1. validates the input;
-2. starts the Qwen vLLM server;
+2. loads Qwen directly with the offline `vllm.LLM` API;
 3. displays vLLM logs and model-loading progress;
-4. waits for the API to become ready;
-5. processes the first three clients with a session-level progress bar;
+4. initializes the offline inference engine;
+5. submits direct prompt batches with vLLM's native generation progress bar;
 6. writes checkpoints and final outputs;
-7. shuts down vLLM and releases the GPU.
+7. releases the offline vLLM engine and GPU.
 
 ### 3. Run the complete workbook with one model
 
@@ -160,8 +162,8 @@ python run.py \
   --deidentified-confirmed
 ```
 
-The CLI loads only one model at a time. It finishes and shuts down one server before loading the
-next model. Outputs are separated into `qwen`, `medgemma`, and `gpt_oss` directories.
+The CLI loads only one model at a time. It releases one offline engine before loading the next
+model. Outputs are separated into `qwen`, `medgemma`, and `gpt_oss` directories.
 
 ### 5. Run selected clients
 
@@ -178,20 +180,6 @@ python run.py \
   --deidentified-confirmed
 ```
 
-### 6. Start only the model server
-
-This is optional and is useful for manual API testing. The command remains active until
-`Ctrl+C`:
-
-```bash
-python run.py \
-  --pipeline serve \
-  --model qwen \
-  --model-root /scratch/pathilda/Models
-```
-
-Normal extraction does not require this separate step.
-
 ## Useful options
 
 ```text
@@ -200,10 +188,10 @@ Normal extraction does not require this separate step.
 --note-column statement2       Override the note-text column
 --max-clients 5                Run only the first five clients
 --client-id C001               Select one client; may be repeated
---port 8001                    Use a different local API port
---max-model-len 16384          Reduce context length if GPU memory is tight
+--max-model-len 131072         Total input-plus-output context limit
+--max-tokens 32768             Maximum generated tokens per model response
+--batch-size 8                 Maximum active sequences in direct vLLM generation
 --gpu-memory-utilization 0.90  Change vLLM's GPU-memory fraction
---startup-timeout 1800         Model-loading timeout in seconds
 ```
 
 Run `python run.py --help` for the complete list.
@@ -227,6 +215,44 @@ python run.py \
 The cell stays active while extraction runs and shows the native vLLM loading logs plus the
 session progress bar.
 
+### Fast batched execution
+
+The extraction path now uses the same inference structure as the earlier repository: it creates
+an in-process `vllm.LLM` object and passes prompt lists directly to
+`LLM.generate(..., use_tqdm=True)`. There is no HTTP layer. Each generation wave contains the
+next eligible session from every active client. vLLM batches that list on the H100 while the
+pipeline preserves chronological dependencies inside each client.
+
+```bash
+python run.py \
+  --pipeline extract \
+  --model qwen \
+  --model-root /scratch/pathilda/Models \
+  --input /scratch/pathilda/deidentified_notes.xlsx \
+  --output /scratch/pathilda/clinical_target_results \
+  --batch-size 8 \
+  --deidentified-confirmed
+```
+
+Sessions belonging to one client remain strictly sequential because session n depends on the
+JSON profile from session n-1. Raw notes and model responses from older sessions are not repeated
+in the prompt. With multiple clients, each wave is generated as one direct batch. A run containing
+only one client cannot batch dependent sessions.
+
+There is one normal model call per session. A later-session call handles existing targets,
+carry-forward, change classification, and genuinely new targets together. Python assigns new
+`T###` identifiers, so there is no separate canonicalization call. Only structurally invalid JSON
+can trigger one repair call.
+If a model or GPU allocation runs out of memory, retry with `--batch-size 4`, then `2`, then `1`.
+The old `--concurrency` spelling remains accepted as an alias for `--batch-size`.
+
+### Alliance clusters without `nvcc`
+
+Before importing vLLM, the pipeline sets `VLLM_USE_FLASHINFER_SAMPLER=0`. This prevents
+FlashInfer's sampling warm-up from trying to JIT-compile a CUDA kernel when `nvcc` or
+`/usr/local/cuda` is unavailable. vLLM uses its native sampler instead; the model's
+FlashAttention attention backend remains available.
+
 ## Output
 
 Each model writes into its own directory:
@@ -246,13 +272,46 @@ raw_responses.jsonl
 validated_sessions.jsonl
 failures.jsonl
 registries/
-session_targets.parquet
-pairwise_comparisons.parquet
+session_targets.csv
+target_changes.csv
+pairwise_comparisons.csv
 ```
 
-The pipeline checkpoints after every successful session. Rerunning the same command reuses
-valid checkpoints when the note history, prompts, model settings, registry, and prior structured
-records have not changed.
+CSV analysis tables are always written. If `pyarrow` or `fastparquet` is available, equivalent
+`.parquet` files are written as an additional convenience; Parquet support is not required.
+
+`validated_sessions.jsonl` stores both the raw schema-conforming model output and the complete
+`session_profile` passed to the next session. `session_targets.csv` has one row per
+client-session-target, including:
+
+```text
+verbatim_evidence
+evidence_source_session
+substantively_treated
+performance_observed
+change_from_previous
+carried_forward
+newly_added
+```
+
+`target_changes.csv` contains only adjacent transitions: `improved`, `stable`, `worsened`,
+`not_assessed`, or `new`. For compatibility, `pairwise_comparisons.csv` contains the same
+adjacent-only rows and identifies its scope as `immediately_previous_profile`; it no longer
+contains every historical session pair. It also provides derived binary `comparable`, `better`,
+and `worse` columns alongside the one-hot change columns.
+
+Evidence mismatches and inconsistent carry-forward combinations are preserved under
+`quality_warnings` instead of causing a repair. Hard validation is limited to schema-conforming
+JSON, valid identifiers, and exactly one update for every target in the previous profile.
+
+The pipeline checkpoints JSONL, the complete session profile, and the client registry after every
+successful session. Rerunning the same command reuses valid checkpoints when the current note,
+previous profile, prompts, model settings, and registry have not changed. The derived CSV/Parquet
+tables are materialized once at the end of the run.
+
+The rolling-profile contract is versioned as `rolling_snapshot_v1`. Checkpoints from the former
+all-history architecture do not match its fingerprints and are recomputed automatically. Use a
+fresh `--output` directory when you want the cleanest before/after speed comparison.
 
 ## Architecture
 
@@ -261,18 +320,24 @@ run.py
   └── cli.py
       ├── data.py          input validation and session ordering
       ├── settings.py      Qwen, MedGemma, and GPT-OSS presets
-      ├── server.py        vLLM start, readiness, live output, and shutdown
       └── run_extraction.py
           ├── prompts.py
-          ├── model_client.py
+          ├── model_client.py  direct vllm.LLM.generate batching
           ├── validate.py
           ├── registry.py
           └── output_store.py
 ```
 
-For every client, the pipeline processes only information available through the current
-session. It never includes a future note in an earlier prompt. Invalid structured output gets
-one repair attempt. Context overflow is recorded instead of silently truncating the history.
+For every client, session 1 receives its note and creates the initial profile. Session n receives
+only profile n-1 and note n. When a prior target is absent from note n, the model copies its prior
+verbatim evidence and source-session number, sets `carried_forward=1`, and records
+`change_from_previous="not_assessed"`. When a genuinely new target appears, the same response
+describes it and Python assigns the next stable ID.
+
+This avoids repeating all prior notes and all prior structured outputs, and removes the former
+all-pairs comparison and canonicalization-call loops. Invalid structured output still gets one
+repair attempt. Each batch contains at most one session per client, and vLLM keeps up to
+`--batch-size` sequences active while displaying its native TQDM progress.
 
 ## Tests
 

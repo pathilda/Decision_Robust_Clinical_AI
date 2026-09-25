@@ -1,4 +1,4 @@
-"""Unified command-line interface for inspection, serving, and extraction."""
+"""Unified command-line interface for inspection and direct offline extraction."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from pathlib import Path
 from .data import ColumnConfig, DataConfig, inspect_input, load_notes
 from .model_client import ModelConfig
 from .run_extraction import process_clients
-from .server import ManagedVLLMServer, VLLMServerError
 from .settings import MODEL_PRESETS, resolve_model_path
 
 
@@ -20,14 +19,14 @@ DEFAULT_MODEL_ROOT = Path(os.environ.get("MODEL_ROOT", "/scratch/pathilda/Models
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Sequential clinical-target extraction from session notes",
+        description="Rolling-profile clinical-target extraction from session notes",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--pipeline",
         required=True,
-        choices=["inspect", "extract", "serve"],
-        help="inspect input, run extraction, or start only the model server",
+        choices=["inspect", "extract"],
+        help="inspect input or run direct offline extraction",
     )
     parser.add_argument("--input", type=Path, help="Excel/CSV/Parquet notes file")
     parser.add_argument("--sheet", default=None, help="Excel sheet name")
@@ -57,12 +56,19 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Required acknowledgement that the input contains no identifying data",
     )
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--max-model-len", type=int, default=32768)
-    parser.add_argument("--max-tokens", type=int, default=6144)
+    parser.add_argument("--max-model-len", type=int, default=131072)
+    parser.add_argument("--max-tokens", type=int, default=32768)
+    parser.add_argument(
+        "--batch-size",
+        "--concurrency",
+        dest="batch_size",
+        type=int,
+        default=8,
+        help=(
+            "Maximum sequences vLLM processes concurrently during direct batched generation"
+        ),
+    )
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.92)
-    parser.add_argument("--startup-timeout", type=int, default=1800)
     return parser
 
 
@@ -99,73 +105,47 @@ def _model_names(args: argparse.Namespace) -> list[str]:
     return list(MODEL_PRESETS) if args.model == "all" else [args.model]
 
 
-def _server(args: argparse.Namespace, model_name: str) -> ManagedVLLMServer:
-    preset = MODEL_PRESETS[model_name]
-    model_path = resolve_model_path(model_name, args.model_root, args.model_path)
-    return ManagedVLLMServer(
-        preset=preset,
-        model_path=model_path,
-        host=args.host,
-        port=args.port,
-        max_model_len=args.max_model_len,
-        gpu_memory_utilization=args.gpu_memory_utilization,
-        startup_timeout=args.startup_timeout,
-    )
-
-
 def _model_config(
     args: argparse.Namespace,
     model_name: str,
-    server: ManagedVLLMServer,
 ) -> ModelConfig:
+    model_path = resolve_model_path(model_name, args.model_root, args.model_path)
     return ModelConfig(
         model_label=model_name,
-        model_id=str(server.model_path),
-        tokenizer_id=str(server.model_path),
-        base_url=server.base_url,
+        model_id=str(model_path),
+        tokenizer_id=str(model_path),
+        dtype=MODEL_PRESETS[model_name].dtype,
         max_tokens=args.max_tokens,
         max_model_len=args.max_model_len,
-        structured_output_mode=MODEL_PRESETS[model_name].structured_output_mode,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        max_num_seqs=args.batch_size,
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.batch_size < 1:
+            raise ValueError("--batch-size must be at least 1")
         if args.pipeline == "inspect":
             report = inspect_input(_data_config(args, confirmed=False))
             print(json.dumps(report, indent=2, ensure_ascii=False))
             return 0
 
         model_names = _model_names(args)
-        if args.pipeline == "serve":
-            if len(model_names) != 1:
-                raise ValueError("--pipeline serve accepts one model, not --model all")
-            server = _server(args, model_names[0])
-            server.start()
-            try:
-                server.wait_until_ready()
-                print(f"\nServer ready at {server.base_url}; press Ctrl+C to stop.")
-                server.process.wait()
-            except KeyboardInterrupt:
-                print("\nStopping server...")
-            finally:
-                server.stop()
-            return 0
-
         if not args.deidentified_confirmed:
             raise ValueError("Extraction requires --deidentified-confirmed")
         notes = load_notes(_data_config(args, confirmed=True), require_deidentified=True)
         clients = _selected_clients(args, notes)
         summaries: dict[str, dict[str, int]] = {}
         for model_name in model_names:
-            with _server(args, model_name) as server:
-                summaries[model_name] = process_clients(
-                    notes=notes,
-                    selected_clients=clients,
-                    model_config=_model_config(args, model_name, server),
-                    output_root=args.output.expanduser().resolve(),
-                )
+            summaries[model_name] = process_clients(
+                notes=notes,
+                selected_clients=clients,
+                model_config=_model_config(args, model_name),
+                output_root=args.output.expanduser().resolve(),
+                batch_size=args.batch_size,
+            )
         print("\n>>> Finished")
         print(json.dumps(summaries, indent=2))
         has_failures = any(
@@ -173,6 +153,6 @@ def main(argv: list[str] | None = None) -> int:
             for result in summaries.values()
         )
         return 1 if has_failures else 0
-    except (FileNotFoundError, ValueError, VLLMServerError) as exc:
+    except (FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

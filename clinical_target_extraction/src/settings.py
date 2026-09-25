@@ -11,7 +11,6 @@ class ModelPreset:
     name: str
     directory: str
     dtype: str
-    structured_output_mode: str = "response_format"
 
 
 MODEL_PRESETS: dict[str, ModelPreset] = {

@@ -1,19 +1,23 @@
-"""Strict Pydantic schemas for every model-produced response."""
+"""Strict schemas for rolling clinical-target profile generation."""
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 
 class StrictModel(BaseModel):
-    """Forbid model output fields that are not part of the declared contract."""
+    """Forbid model output fields outside the declared JSON contract."""
 
     model_config = ConfigDict(extra="forbid")
 
 
 Binary = StrictInt
+ChangeLabel = Literal["improved", "stable", "worsened", "not_assessed"]
+ProfileChangeLabel = Literal[
+    "new", "improved", "stable", "worsened", "not_assessed"
+]
 
 
 def _binary_field() -> int:
@@ -21,15 +25,14 @@ def _binary_field() -> int:
 
 
 class DiscoveredTarget(StrictModel):
+    """A target first found in session 1."""
+
     proposed_label: str = Field(min_length=1)
     definition: str = Field(min_length=1)
     aliases_in_note: list[str]
+    verbatim_evidence: list[str]
     substantively_treated: Binary = _binary_field()
     performance_observed: Binary = _binary_field()
-    target_evidence: list[str]
-    treatment_evidence: list[str]
-    performance_evidence: list[str]
-    rationale: str = Field(min_length=1)
 
 
 class Session1Output(StrictModel):
@@ -39,67 +42,60 @@ class Session1Output(StrictModel):
     targets: list[DiscoveredTarget]
 
 
-class PairwiseComparison(StrictModel):
-    prior_session_index: int = Field(strict=True, ge=1)
-    comparable: Binary = _binary_field()
-    better: Binary = _binary_field()
-    worse: Binary = _binary_field()
-    current_evidence: list[str]
-    prior_evidence: list[str]
-    comparison_basis: str = Field(min_length=1)
+class ExistingTargetUpdate(StrictModel):
+    """The current snapshot of one target already present in the prior profile."""
 
-    @model_validator(mode="after")
-    def validate_direction(self) -> "PairwiseComparison":
-        if self.better + self.worse > 1:
-            raise ValueError("better and worse cannot both equal 1")
-        if self.comparable == 0 and (self.better != 0 or self.worse != 0):
-            raise ValueError("non-comparable records must set better=0 and worse=0")
-        return self
-
-
-class TargetAssessment(StrictModel):
     target_id: str = Field(pattern=r"^T\d{3,}$")
+    verbatim_evidence: list[str]
+    evidence_source_session: int = Field(strict=True, ge=1)
     substantively_treated: Binary = _binary_field()
     performance_observed: Binary = _binary_field()
-    treatment_evidence: list[str]
-    performance_evidence: list[str]
-    comparisons: list[PairwiseComparison]
-    rationale: str = Field(min_length=1)
+    change_from_previous: ChangeLabel
+    carried_forward: Binary = _binary_field()
 
 
 class NewTargetCandidate(StrictModel):
+    """A genuinely new target found in the current note."""
+
     proposed_label: str = Field(min_length=1)
     definition: str = Field(min_length=1)
-    evidence: list[str]
+    aliases_in_note: list[str]
+    verbatim_evidence: list[str]
     substantively_treated: Binary = _binary_field()
     performance_observed: Binary = _binary_field()
-    possible_existing_target_id: str | None
-    novelty_rationale: str = Field(min_length=1)
 
 
 class LaterSessionOutput(StrictModel):
     client_id: str = Field(min_length=1)
     session_index: int = Field(strict=True, ge=2)
     note_id: str = Field(min_length=1)
-    target_assessments: list[TargetAssessment]
-    new_target_candidates: list[NewTargetCandidate]
+    existing_targets: list[ExistingTargetUpdate]
+    new_targets: list[NewTargetCandidate]
 
 
-class CanonicalizationOutput(StrictModel):
-    candidate_label: str = Field(min_length=1)
-    decision: Literal["same_as_existing", "genuinely_new"]
-    matched_target_id: str | None
-    recommended_label: str = Field(min_length=1)
-    recommended_definition: str = Field(min_length=1)
-    rationale: str = Field(min_length=1)
+class ProfileTarget(StrictModel):
+    """One durable target entry passed to the next session."""
 
-    @model_validator(mode="after")
-    def validate_match(self) -> "CanonicalizationOutput":
-        if self.decision == "same_as_existing" and self.matched_target_id is None:
-            raise ValueError("matched_target_id is required for same_as_existing")
-        if self.decision == "genuinely_new" and self.matched_target_id is not None:
-            raise ValueError("matched_target_id must be null for genuinely_new")
-        return self
+    target_id: str = Field(pattern=r"^T\d{3,}$")
+    canonical_label: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    aliases: list[str]
+    verbatim_evidence: list[str]
+    evidence_source_session: int = Field(strict=True, ge=1)
+    substantively_treated: Binary = _binary_field()
+    performance_observed: Binary = _binary_field()
+    change_from_previous: ProfileChangeLabel
+    carried_forward: Binary = _binary_field()
+    newly_added: Binary = _binary_field()
 
 
-ModelOutput = Session1Output | LaterSessionOutput | CanonicalizationOutput
+class SessionProfile(StrictModel):
+    """Complete compact state handed from one session to the next."""
+
+    client_id: str = Field(min_length=1)
+    session_index: int = Field(strict=True, ge=1)
+    note_id: str = Field(min_length=1)
+    targets: list[ProfileTarget]
+
+
+ModelOutput = Session1Output | LaterSessionOutput

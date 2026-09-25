@@ -1,33 +1,34 @@
-TASK: CURRENT-SESSION TARGET ASSESSMENT
+TASK: UPDATE THE ROLLING TARGET PROFILE
 
-You are analyzing session {{ current_session_index }}. Information from later sessions has not been provided and must not be inferred.
+You receive exactly two sources: the complete JSON profile produced for the immediately previous session and the current clinical note. Do not assume access to any other raw note.
 
-First assess every registered target. For each target:
+For every target in PREVIOUS_SESSION_PROFILE, return exactly one existing_targets entry with the same target_id.
 
-1. Set substantively_treated to 1 only if the current note shows direct and meaningful therapeutic work on that target; otherwise set it to 0.
-2. Set performance_observed to 1 only if the current note contains interpretable performance evidence; otherwise set it to 0.
-3. Compare the current session separately with every prior session listed in PRIOR STRUCTURED RECORDS.
-4. For each prior session, set comparable=1 only when both sessions contain evaluable evidence about the same construct under sufficiently compatible conditions.
-5. If comparable=1, encode better, worse, or no meaningful difference. If comparable=0, set better=0 and worse=0.
-6. Quote brief exact evidence from the current and prior notes. Do not use lack of documentation as outcome evidence.
+If the current note documents substantive treatment or interpretable current performance for that target:
+- set carried_forward=0;
+- copy short verbatim_evidence from CURRENT_SESSION_NOTE;
+- set evidence_source_session to the current session index;
+- set substantively_treated and performance_observed from the current note;
+- compare current performance with the prior profile and set change_from_previous to improved, stable, worsened, or not_assessed. Use not_assessed when evidence is insufficient or not comparable.
 
-After assessing all registered targets, identify legitimate new target candidates in the current note. A new candidate must be substantively treated, explicitly established as a goal, or supported by clear clinically relevant performance evidence. Do not propose a new target when it is an alias, subwording, example, or activity-specific version of an existing target.
+If the current note documents neither substantive treatment nor interpretable current performance for that target, including when it only mentions the target incidentally, as background, as a standing goal, or as a future plan:
+- copy verbatim_evidence and evidence_source_session exactly from the prior target profile;
+- set carried_forward=1;
+- set substantively_treated=0 and performance_observed=0;
+- set change_from_previous="not_assessed".
+
+Put a target in new_targets only when the current note establishes a genuinely new construct not represented by any prior target or alias and it is substantively treated, explicitly established as a current goal, or supported by clinically meaningful performance evidence. Do not create targets from diagnosis, background, incidental mention, or future planning alone. Include its label, definition, aliases, verbatim current-note evidence, and the two binary fields. Python will assign its stable target_id.
 
 CLIENT_ID: {{ client_id }}
 CURRENT_SESSION_INDEX: {{ current_session_index }}
 CURRENT_NOTE_ID: {{ current_note_id }}
 
-<TARGET_REGISTRY>
-{{ target_registry_json }}
-</TARGET_REGISTRY>
+<PREVIOUS_SESSION_PROFILE>
+{{ previous_session_profile_json }}
+</PREVIOUS_SESSION_PROFILE>
 
-<PRIOR_STRUCTURED_RECORDS>
-{{ prior_outputs_json }}
-</PRIOR_STRUCTURED_RECORDS>
+<CURRENT_SESSION_NOTE>
+{{ current_note_text }}
+</CURRENT_SESSION_NOTE>
 
-<NOTES_THROUGH_CURRENT_SESSION>
-{{ notes_with_explicit_session_boundaries }}
-</NOTES_THROUGH_CURRENT_SESSION>
-
-Return JSON matching the LaterSessionOutput schema. Include every registered target exactly once. For every target, include every prior session index exactly once in comparisons.
-
+Return only JSON matching LaterSessionOutput.
