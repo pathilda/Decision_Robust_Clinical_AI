@@ -1,8 +1,0 @@
-# Session order is derived from workbook row order within each contiguous ID block.
-# Note IDs are generated as "{client_id}::S{session_index:04d}".
-input_path: /absolute/path/to/deidentified_notes.xlsx
-sheet_name: Notes
-deidentified_confirmed: false
-columns:
-  client_id: ID
-  note_text: statement2

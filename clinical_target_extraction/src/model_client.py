@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
@@ -29,11 +27,6 @@ class ModelConfig(BaseModel):
     seed: int = 20260924
     max_model_len: int = Field(default=32768, gt=0)
     structured_output_mode: Literal["response_format", "guided_json"] = "response_format"
-
-
-def load_model_config(path: Path) -> ModelConfig:
-    with path.resolve().open("r", encoding="utf-8") as handle:
-        return ModelConfig.model_validate(yaml.safe_load(handle))
 
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)

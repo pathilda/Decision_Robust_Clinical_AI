@@ -1,11 +1,9 @@
-"""CLI and sequential per-client extraction orchestration."""
+"""Sequential per-client extraction orchestration."""
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
-import sys
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -13,13 +11,13 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
+from tqdm.auto import tqdm
 
-from .data import ClinicalNote, inspect_input, load_data_config, load_notes
+from .data import ClinicalNote
 from .model_client import (
     ContextOverflowError,
     ModelConfig,
     VLLMClient,
-    load_model_config,
     repair_prompt,
 )
 from .output_store import OutputStore
@@ -41,9 +39,6 @@ from .validate import (
 
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-
-
 class SessionFailed(RuntimeError):
     pass
 
@@ -193,9 +188,6 @@ def process_clients(
     missing = [client_id for client_id in selected_clients if client_id not in grouped]
     if missing:
         raise ValueError(f"Selected client IDs are absent from the validated input: {missing}")
-    if len(selected_clients) > 5:
-        raise ValueError("Dry-run safety limit is five clients; do not run the full dataset yet")
-
     store.write_run_config(
         {
             "created_at": utc_now(),
@@ -208,6 +200,13 @@ def process_clients(
     model_client = VLLMClient(model_config)
     counters = {"completed": 0, "reused": 0, "failed": 0, "context_overflow": 0}
 
+    selected_note_count = sum(len(grouped[client_id]) for client_id in selected_clients)
+    progress = tqdm(
+        total=selected_note_count,
+        desc=f"Extracting with {model_config.model_label}",
+        unit="session",
+        dynamic_ncols=True,
+    )
     for client_id in selected_clients:
         registry = TargetRegistry(client_id=client_id)
         prior_records: list[dict[str, Any]] = []
@@ -216,6 +215,7 @@ def process_clients(
         notes_by_session = {note.session_index: note for note in client_notes}
 
         for position, note in enumerate(client_notes):
+            progress.set_postfix(client=client_id, session=note.session_index)
             notes_to_date = client_notes[: position + 1]
             registry_before = registry.model_copy(deep=True)
             fingerprint = request_fingerprint(
@@ -233,6 +233,7 @@ def process_clients(
                 _update_observed(prior_observed, prior_record)
                 store.save_registry(client_id, registry.model_dump())
                 counters["reused"] += 1
+                progress.update(1)
                 continue
 
             stale_keys = [
@@ -363,6 +364,7 @@ def process_clients(
                 _update_observed(prior_observed, prior_record)
                 store.materialize_parquet()
                 counters["completed"] += 1
+                progress.update(1)
             except ContextOverflowError as exc:
                 store.append_failure(
                     {
@@ -373,6 +375,7 @@ def process_clients(
                     }
                 )
                 counters["context_overflow"] += 1
+                progress.update(1)
                 break
             except Exception as exc:
                 store.append_failure(
@@ -384,8 +387,10 @@ def process_clients(
                     }
                 )
                 counters["failed"] += 1
+                progress.update(1)
                 break
 
+    progress.close()
     store.materialize_parquet()
     return counters
 
@@ -478,65 +483,3 @@ def _update_observed(
     session_index = int(prior_record["session_index"])
     for target in prior_record["target_records"]:
         observed[(session_index, target["target_id"])] = int(target["performance_observed"])
-
-
-def selected_client_ids(args: argparse.Namespace) -> list[str]:
-    values = list(args.client_id or [])
-    if args.client_file:
-        values.extend(
-            line.strip()
-            for line in args.client_file.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("#")
-        )
-    values = list(dict.fromkeys(values))
-    if not values:
-        raise ValueError("At least one --client-id or --client-file entry is required")
-    return values
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    inspect_parser = subparsers.add_parser("inspect-data", help="Inspect and validate input data")
-    inspect_parser.add_argument("--data-config", type=Path, required=True)
-
-    run_parser = subparsers.add_parser("run", help="Run a selected-client extraction dry run")
-    run_parser.add_argument("--data-config", type=Path, required=True)
-    run_parser.add_argument("--model-config", type=Path, required=True)
-    run_parser.add_argument("--client-id", action="append")
-    run_parser.add_argument("--client-file", type=Path)
-    run_parser.add_argument(
-        "--output-root",
-        type=Path,
-        default=PACKAGE_ROOT / "outputs",
-        help="Root under which the model-specific output directory is created",
-    )
-    return parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    try:
-        data_config = load_data_config(args.data_config)
-        if args.command == "inspect-data":
-            print(json.dumps(inspect_input(data_config), indent=2, ensure_ascii=False))
-            return 0
-
-        clients = selected_client_ids(args)
-        notes = load_notes(data_config, require_deidentified=True)
-        model_config = load_model_config(args.model_config)
-        result = process_clients(
-            notes=notes,
-            selected_clients=clients,
-            model_config=model_config,
-            output_root=args.output_root,
-        )
-        print(json.dumps(result, indent=2))
-        return 1 if result["failed"] or result["context_overflow"] else 0
-    except (FileNotFoundError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -1,4 +1,4 @@
-"""Configuration-driven tabular input loading and pre-inference validation."""
+"""Tabular input loading and pre-inference validation."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -36,16 +35,6 @@ class ClinicalNote:
     session_index: int
     note_id: str
     note_text: str
-
-
-def load_data_config(path: Path) -> DataConfig:
-    path = path.resolve()
-    with path.open("r", encoding="utf-8") as handle:
-        raw = yaml.safe_load(handle)
-    config = DataConfig.model_validate(raw)
-    if not config.input_path.is_absolute():
-        config.input_path = (path.parent / config.input_path).resolve()
-    return config
 
 
 def read_input_table(config: DataConfig) -> pd.DataFrame:
