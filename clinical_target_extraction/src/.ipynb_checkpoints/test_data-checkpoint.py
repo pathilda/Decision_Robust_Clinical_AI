@@ -49,7 +49,7 @@ def test_loads_one_row_per_client_and_combines_both_sources(tmp_path) -> None:
     assert report["one_row_per_client"] is True
 
 
-def test_duplicate_client_ids_are_rejected(tmp_path) -> None:
+def test_duplicate_client_ids_use_first_row_and_are_reported(tmp_path, capsys) -> None:
     config = make_config(
         tmp_path,
         [
@@ -65,8 +65,19 @@ def test_duplicate_client_ids_are_rejected(tmp_path) -> None:
             },
         ],
     )
-    with pytest.raises(ValueError, match="exactly one row"):
-        load_clients(config)
+    clients = load_clients(config)
+    captured = capsys.readouterr()
+
+    assert len(clients) == 1
+    assert clients[0].sp_text == "One"
+    assert "1 client has more than one row" in captured.err
+    assert "ignoring 1 later row" in captured.err
+
+    report = inspect_input(config)
+    assert report["row_count"] == 2
+    assert report["client_count"] == 1
+    assert report["duplicate_client_count"] == 1
+    assert report["ignored_later_row_count"] == 1
 
 
 @pytest.mark.parametrize(

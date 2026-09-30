@@ -1,4 +1,4 @@
-"""Load and render versioned prompt templates."""
+"""Load and render the versioned client-classification prompts."""
 
 from __future__ import annotations
 
@@ -8,14 +8,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .data import ClinicalNote
+from .data import ClientNote
 
 
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
 PROMPT_FILES = {
-    "system": "system.txt",
-    "session1": "session1.txt",
-    "later_session": "later_session.txt",
+    "system": "classification_system.txt",
+    "classification": "classification.txt",
 }
 PLACEHOLDER = re.compile(r"{{\s*([a-zA-Z0-9_]+)\s*}}")
 
@@ -43,31 +42,9 @@ def render(template: str, **values: Any) -> str:
     return PLACEHOLDER.sub(lambda match: str(values[match.group(1)]), template)
 
 
-def build_session1_prompt(template: str, note: ClinicalNote) -> str:
+def build_classification_prompt(template: str, client: ClientNote) -> str:
     return render(
         template,
-        client_id=note.client_id,
-        note_id=note.note_id,
-        note_text=note.note_text,
-    )
-
-
-def build_later_prompt(
-    template: str,
-    previous_profile: dict[str, Any],
-    current_note: ClinicalNote,
-) -> str:
-    """Provide exactly one prior JSON snapshot plus the current raw note."""
-
-    return render(
-        template,
-        client_id=current_note.client_id,
-        current_session_index=current_note.session_index,
-        current_note_id=current_note.note_id,
-        previous_session_profile_json=json.dumps(
-            previous_profile,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ),
-        current_note_text=current_note.note_text,
+        client_id=client.client_id,
+        combined_note=client.note_text,
     )

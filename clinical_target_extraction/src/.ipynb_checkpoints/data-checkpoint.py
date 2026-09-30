@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -83,19 +82,18 @@ def load_clients(config: DataConfig, *, require_deidentified: bool = True) -> li
         raise ValueError(f"Missing client ID values (source rows, first 20): {missing_id_rows}")
     logical["client_id"] = client_ids
 
-    duplicate_client_count, ignored_later_row_count = _duplicate_stats(
-        logical["client_id"]
-    )
-    if duplicate_client_count:
-        client_word = "client has" if duplicate_client_count == 1 else "clients have"
-        row_word = "row" if ignored_later_row_count == 1 else "rows"
-        print(
-            f"warning: {duplicate_client_count} {client_word} more than one row; "
-            f"using the first row for each and ignoring {ignored_later_row_count} "
-            f"later {row_word}",
-            file=sys.stderr,
+    duplicate_mask = logical["client_id"].duplicated(keep=False)
+    if duplicate_mask.any():
+        duplicate_rows = (
+            logical.loc[duplicate_mask, ["client_id", "source_row"]]
+            .groupby("client_id", sort=False)["source_row"]
+            .apply(lambda values: [int(value) for value in values])
+            .to_dict()
         )
-        logical = logical.drop_duplicates(subset="client_id", keep="first").copy()
+        raise ValueError(
+            "Each client must occupy exactly one row; duplicate client IDs found: "
+            f"{duplicate_rows}"
+        )
 
     for column in ("sp_text", "assessment_text"):
         logical[column] = logical[column].map(_cell_text)
@@ -140,26 +138,15 @@ def combine_client_texts(*, sp_text: str, assessment_text: str) -> str:
 def inspect_input(config: DataConfig) -> dict[str, Any]:
     frame = read_input_table(config)
     clients = load_clients(config, require_deidentified=False)
-    mapping = config.columns.model_dump()
-    if mapping["client_id"] in frame.columns:
-        source_ids = frame[mapping["client_id"]].map(_cell_text)
-        duplicate_client_count, ignored_later_row_count = _duplicate_stats(source_ids)
-    else:
-        duplicate_client_count = 0
-        ignored_later_row_count = 0
     return {
         "input_path": str(config.input_path),
         "sheet_name": config.sheet_name,
         "actual_columns": [str(column) for column in frame.columns],
         "logical_column_mapping": config.columns.model_dump(),
-        "row_count": len(frame),
+        "row_count": len(clients),
         "client_count": len(clients),
         "client_ids": [client.client_id for client in clients],
-        "one_row_per_client": duplicate_client_count == 0,
-        "analysis_unit": "the first source row for each client",
-        "duplicate_client_count": duplicate_client_count,
-        "ignored_later_row_count": ignored_later_row_count,
-        "duplicate_policy": "use the first source row for each client",
+        "one_row_per_client": True,
         "combined_note_sections": ["SP text", "assessment text"],
         "deidentified_confirmed": config.deidentified_confirmed,
     }
@@ -169,9 +156,3 @@ def _cell_text(value: object) -> str:
     if pd.isna(value):
         return ""
     return str(value).strip()
-
-
-def _duplicate_stats(client_ids: pd.Series) -> tuple[int, int]:
-    counts = client_ids[client_ids.ne("")].value_counts(sort=False)
-    repeated = counts[counts.gt(1)]
-    return int(len(repeated)), int((repeated - 1).sum())

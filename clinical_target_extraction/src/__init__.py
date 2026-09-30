@@ -1,1 +1,1 @@
-"""Implementation modules for the extraction pipeline."""
+"""Implementation modules for the client-classification pipeline."""

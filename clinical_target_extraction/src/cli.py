@@ -1,4 +1,4 @@
-"""Unified command-line interface for inspection and direct offline extraction."""
+"""Command-line interface for one-row-per-client treatment classification."""
 
 from __future__ import annotations
 
@@ -8,9 +8,16 @@ import os
 import sys
 from pathlib import Path
 
-from .data import ColumnConfig, DataConfig, inspect_input, load_notes
+from .data import (
+    CLIENT_ID_COLUMN,
+    ClientNote,
+    ColumnConfig,
+    DataConfig,
+    inspect_input,
+    load_clients,
+)
 from .model_client import ModelConfig
-from .run_extraction import process_clients
+from .run_classification import process_clients
 from .settings import MODEL_PRESETS, resolve_model_path
 
 
@@ -19,19 +26,22 @@ DEFAULT_MODEL_ROOT = Path(os.environ.get("MODEL_ROOT", "/scratch/pathilda/Models
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Rolling-profile clinical-target extraction from session notes",
+        description=(
+            "Classify one combined SP/assessment pre-treatment note per client"
+        ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--pipeline",
         required=True,
-        choices=["inspect", "extract"],
-        help="inspect input or run direct offline extraction",
+        choices=["inspect", "classify"],
+        help="validate the workbook or run client-level classification",
     )
-    parser.add_argument("--input", type=Path, help="Excel/CSV/Parquet notes file")
-    parser.add_argument("--sheet", default=None, help="Excel sheet name")
-    parser.add_argument("--id-column", default="ID")
-    parser.add_argument("--note-column", default="statement2")
+    parser.add_argument("--input", type=Path, required=True, help="Excel client workbook")
+    parser.add_argument("--sheet", default=None, help="Excel sheet name or zero-based index")
+    parser.add_argument("--id-column", default=CLIENT_ID_COLUMN)
+    parser.add_argument("--sp-column", default="SP text")
+    parser.add_argument("--assessment-column", default="assessment text")
     parser.add_argument(
         "--model",
         choices=[*MODEL_PRESETS, "all"],
@@ -57,24 +67,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Required acknowledgement that the input contains no identifying data",
     )
     parser.add_argument("--max-model-len", type=int, default=131072)
-    parser.add_argument("--max-tokens", type=int, default=32768)
+    parser.add_argument("--max-tokens", type=int, default=256)
     parser.add_argument(
         "--batch-size",
         "--concurrency",
         dest="batch_size",
         type=int,
         default=8,
-        help=(
-            "Maximum sequences vLLM processes concurrently during direct batched generation"
-        ),
+        help="Maximum independent clients submitted in each direct vLLM batch",
     )
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.92)
     return parser
 
 
 def _data_config(args: argparse.Namespace, *, confirmed: bool) -> DataConfig:
-    if args.input is None:
-        raise ValueError("--input is required for inspect and extract")
     sheet: str | int | None = args.sheet
     if isinstance(sheet, str) and sheet.isdigit():
         sheet = int(sheet)
@@ -82,14 +88,18 @@ def _data_config(args: argparse.Namespace, *, confirmed: bool) -> DataConfig:
         input_path=args.input.expanduser().resolve(),
         sheet_name=sheet,
         deidentified_confirmed=confirmed,
-        columns=ColumnConfig(client_id=args.id_column, note_text=args.note_column),
+        columns=ColumnConfig(
+            client_id=args.id_column,
+            sp_text=args.sp_column,
+            assessment_text=args.assessment_column,
+        ),
     )
 
 
-def _selected_clients(args: argparse.Namespace, notes) -> list[str]:
-    available = list(dict.fromkeys(note.client_id for note in notes))
+def _selected_clients(args: argparse.Namespace, clients: list[ClientNote]) -> list[str]:
+    available = [client.client_id for client in clients]
     selected = list(dict.fromkeys(args.client_id or available))
-    unknown = [client_id for client_id in selected if client_id not in available]
+    unknown = [client_id for client_id in selected if client_id not in set(available)]
     if unknown:
         raise ValueError(f"Unknown --client-id values: {unknown}")
     if args.max_clients is not None:
@@ -105,10 +115,7 @@ def _model_names(args: argparse.Namespace) -> list[str]:
     return list(MODEL_PRESETS) if args.model == "all" else [args.model]
 
 
-def _model_config(
-    args: argparse.Namespace,
-    model_name: str,
-) -> ModelConfig:
+def _model_config(args: argparse.Namespace, model_name: str) -> ModelConfig:
     model_path = resolve_model_path(model_name, args.model_root, args.model_path)
     return ModelConfig(
         model_label=model_name,
@@ -132,16 +139,15 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, ensure_ascii=False))
             return 0
 
-        model_names = _model_names(args)
         if not args.deidentified_confirmed:
-            raise ValueError("Extraction requires --deidentified-confirmed")
-        notes = load_notes(_data_config(args, confirmed=True), require_deidentified=True)
-        clients = _selected_clients(args, notes)
+            raise ValueError("Classification requires --deidentified-confirmed")
+        clients = load_clients(_data_config(args, confirmed=True))
+        selected = _selected_clients(args, clients)
         summaries: dict[str, dict[str, int]] = {}
-        for model_name in model_names:
+        for model_name in _model_names(args):
             summaries[model_name] = process_clients(
-                notes=notes,
-                selected_clients=clients,
+                clients=clients,
+                selected_clients=selected,
                 model_config=_model_config(args, model_name),
                 output_root=args.output.expanduser().resolve(),
                 batch_size=args.batch_size,
