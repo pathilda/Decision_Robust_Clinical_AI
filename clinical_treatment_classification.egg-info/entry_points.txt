@@ -1,0 +1,3 @@
+[console_scripts]
+clinical-opendecider = opendecider_inference.cli:main
+clinical-treatment-classification = clinical_target_extraction.src.cli:main

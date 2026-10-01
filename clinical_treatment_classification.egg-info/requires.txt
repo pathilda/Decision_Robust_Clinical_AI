@@ -1,0 +1,16 @@
+pandas>=2.0
+pydantic>=2.7
+openpyxl>=3.1
+xlrd>=2.0
+transformers>=4.45
+tqdm>=4.66
+
+[dev]
+pytest>=8
+ruff>=0.6
+
+[opendecider]
+opendecider[small]>=0.1.2
+
+[parquet]
+pyarrow>=14

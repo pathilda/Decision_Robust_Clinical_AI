@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: clinical-treatment-classification
+Version: 1.0.0
+Summary: Client-level treatment-difficulty classification from de-identified pre-treatment text
+Requires-Python: >=3.10
+Requires-Dist: pandas>=2.0
+Requires-Dist: pydantic>=2.7
+Requires-Dist: openpyxl>=3.1
+Requires-Dist: xlrd>=2.0
+Requires-Dist: transformers>=4.45
+Requires-Dist: tqdm>=4.66
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+Provides-Extra: parquet
+Requires-Dist: pyarrow>=14; extra == "parquet"
+Provides-Extra: opendecider
+Requires-Dist: opendecider[small]>=0.1.2; extra == "opendecider"
