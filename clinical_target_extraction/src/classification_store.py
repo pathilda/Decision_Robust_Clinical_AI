@@ -16,6 +16,8 @@ from .data import CLIENT_ID_COLUMN
 RESULT_COLUMNS = [
     "model",
     CLIENT_ID_COLUMN,
+    "prompt_style",
+    "brief_reasoning",
     "treatment_category",
     "source_row",
     "input_sha256",
@@ -82,6 +84,8 @@ class ClassificationStore:
                 {
                     "model": record["model"],
                     CLIENT_ID_COLUMN: client_id,
+                    "prompt_style": record.get("prompt_style", "standard"),
+                    "brief_reasoning": record.get("brief_reasoning"),
                     "treatment_category": record["treatment_category"],
                     "source_row": record["source_row"],
                     "input_sha256": record["input_sha256"],

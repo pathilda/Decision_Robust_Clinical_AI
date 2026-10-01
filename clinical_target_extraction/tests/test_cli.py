@@ -20,6 +20,11 @@ def test_cli_uses_new_workbook_column_defaults() -> None:
     assert args.sp_column == "SP text"
     assert args.assessment_column == "assessment text"
     assert args.max_tokens == 256
+    assert args.prompt_style == "standard"
+
+
+def test_brief_reasoning_prompt_is_selectable() -> None:
+    assert parse("--prompt-style", "brief-reasoning").prompt_style == "brief-reasoning"
 
 
 def test_all_models_have_expected_execution_order() -> None:

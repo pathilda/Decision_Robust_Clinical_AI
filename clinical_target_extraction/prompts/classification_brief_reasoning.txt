@@ -1,0 +1,19 @@
+TASK: CLASSIFY PRE-TREATMENT TREATMENT DIFFICULTY
+
+Read the single combined note for this client and choose exactly one treatment_category:
+
+- "Easy to treatment": the documented needs appear relatively focused, lower intensity, and straightforward to address, with few evident complicating factors.
+- "Moderate to treatment": the documented needs or barriers show meaningful complexity and are likely to require a moderate level of treatment intensity, coordination, or support.
+- "severe to treatment": the documented needs, risks, functional impacts, or barriers appear highly complex or intensive and are likely to require substantial treatment effort, coordination, or support.
+
+Use both source sections when present. If the sources conflict, weigh the full clinical picture. Do not use information outside the note. Return the CLIENT_ID exactly as supplied.
+
+Before announcing the category, provide brief_reasoning of one to three sentences that identifies only the key documented factors supporting the classification. Keep it concise and do not provide hidden or detailed chain-of-thought.
+
+CLIENT_ID: {{ client_id }}
+
+<COMBINED_PRETREATMENT_NOTE>
+{{ combined_note }}
+</COMBINED_PRETREATMENT_NOTE>
+
+Return only JSON matching ClassificationWithBriefReasoningOutput, with brief_reasoning before treatment_category.

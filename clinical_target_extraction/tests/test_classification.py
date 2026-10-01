@@ -11,7 +11,10 @@ from pydantic import ValidationError
 from clinical_target_extraction.src.data import ClientNote
 from clinical_target_extraction.src.model_client import CompletionResult, ModelConfig
 from clinical_target_extraction.src.run_classification import process_clients
-from clinical_target_extraction.src.schemas import ClassificationOutput
+from clinical_target_extraction.src.schemas import (
+    ClassificationOutput,
+    ClassificationWithBriefReasoningOutput,
+)
 
 
 def client(client_id: str, row: int) -> ClientNote:
@@ -174,3 +177,60 @@ def test_schema_accepts_only_the_three_exact_labels() -> None:
 
     with pytest.raises(ValidationError):
         ClassificationOutput(client_id="C001", treatment_category="Easy to treat")
+
+
+def test_brief_reasoning_prompt_writes_reasoning_to_separate_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class BriefReasoningFakeClient(BatchFakeClient):
+        def complete_batch(self, requests) -> list[CompletionResult]:
+            assert all(
+                request[2] is ClassificationWithBriefReasoningOutput
+                for request in requests
+            )
+            return [
+                CompletionResult(
+                    json.dumps(
+                        {
+                            "client_id": "C001",
+                            "brief_reasoning": (
+                                "The note documents multiple needs requiring coordination."
+                            ),
+                            "treatment_category": "Moderate to treatment",
+                        }
+                    ),
+                    30,
+                )
+            ]
+
+    monkeypatch.setattr(
+        "clinical_target_extraction.src.run_classification.VLLMClient",
+        BriefReasoningFakeClient,
+    )
+
+    result = process_clients(
+        clients=[client("C001", 2)],
+        selected_clients=["C001"],
+        model_config=model_config(1),
+        output_root=tmp_path,
+        batch_size=1,
+        prompt_style="brief-reasoning",
+    )
+
+    assert result["completed"] == 1
+    output = pd.read_excel(
+        tmp_path / "qwen_brief_reasoning" / "client_classifications.xlsx"
+    )
+    assert output.loc[0, "prompt_style"] == "brief-reasoning"
+    assert output.loc[0, "brief_reasoning"].startswith("The note documents")
+    assert output.loc[0, "treatment_category"] == "Moderate to treatment"
+
+
+def test_brief_reasoning_schema_requires_nonempty_reasoning() -> None:
+    with pytest.raises(ValidationError):
+        ClassificationWithBriefReasoningOutput(
+            client_id="C001",
+            brief_reasoning="",
+            treatment_category="Easy to treatment",
+        )

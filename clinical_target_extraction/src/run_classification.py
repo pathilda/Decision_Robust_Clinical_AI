@@ -9,14 +9,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from tqdm.auto import tqdm
 
 from .classification_store import ClassificationStore
 from .data import ClientNote
 from .model_client import ContextOverflowError, ModelConfig, VLLMClient, repair_prompt
 from .prompts import build_classification_prompt, load_prompts, prompt_bundle_hash
-from .schemas import ClassificationOutput
+from .schemas import ClassificationResultOutput, schema_for_prompt_style
 
 
 ARCHITECTURE_VERSION = "pretreatment_classification_v1"
@@ -31,7 +31,7 @@ class ClassificationWork:
 
 @dataclass
 class ClassificationResult:
-    output: ClassificationOutput | None = None
+    output: ClassificationResultOutput | None = None
     input_tokens: int = 0
     error: Exception | None = None
 
@@ -47,6 +47,7 @@ def process_clients(
     model_config: ModelConfig,
     output_root: Path,
     batch_size: int = 8,
+    prompt_style: str = "standard",
 ) -> dict[str, int]:
     """Classify each selected client once; no client depends on any other row."""
 
@@ -60,9 +61,15 @@ def process_clients(
     if missing:
         raise ValueError(f"Selected client IDs are absent from the validated input: {missing}")
 
-    prompts = load_prompts()
+    prompts = load_prompts(prompt_style)
     prompts_hash = prompt_bundle_hash(prompts)
-    output_dir = output_root / model_config.model_label
+    output_schema = schema_for_prompt_style(prompt_style)
+    output_label = (
+        model_config.model_label
+        if prompt_style == "standard"
+        else f"{model_config.model_label}_brief_reasoning"
+    )
+    output_dir = output_root / output_label
     store = ClassificationStore(output_dir)
     latest = store.latest_validated()
     store.write_run_config(
@@ -72,6 +79,8 @@ def process_clients(
             "selected_clients": selected_clients,
             "model": model_config.model_dump(),
             "prompt_bundle_sha256": prompts_hash,
+            "prompt_style": prompt_style,
+            "output_schema": output_schema.__name__,
             "output_directory": str(output_dir.resolve()),
             "inference_engine": "vllm.LLM.generate",
             "batch_size": batch_size,
@@ -89,6 +98,7 @@ def process_clients(
             client=client,
             prompts_hash=prompts_hash,
             model_config=model_config,
+            prompt_style=prompt_style,
         )
         existing = latest.get(client_id)
         if existing and existing.get("request_fingerprint") == fingerprint:
@@ -98,7 +108,8 @@ def process_clients(
 
     print(
         f">>> Independent client classification with max_num_seqs={batch_size}; "
-        "each request contains one combined pre-treatment note",
+        f"prompt_style={prompt_style}; each request contains one combined "
+        "pre-treatment note",
         flush=True,
     )
     progress = tqdm(
@@ -120,6 +131,7 @@ def process_clients(
                 store=store,
                 system_prompt=prompts["system"],
                 works=batch,
+                output_schema=output_schema,
             )
             for work, result in zip(batch, results, strict=True):
                 client_id = work.client.client_id
@@ -129,6 +141,7 @@ def process_clients(
                         {
                             "architecture": ARCHITECTURE_VERSION,
                             "model": model_config.model_label,
+                            "prompt_style": prompt_style,
                             "client_id": client_id,
                             "source_row": work.client.source_row,
                             "created_at": utc_now(),
@@ -151,6 +164,12 @@ def process_clients(
                         "client_id": client_id,
                         "source_row": work.client.source_row,
                         "treatment_category": result.output.treatment_category,
+                        "brief_reasoning": getattr(
+                            result.output,
+                            "brief_reasoning",
+                            None,
+                        ),
+                        "prompt_style": prompt_style,
                         "completed_at": utc_now(),
                         "request_fingerprint": work.fingerprint,
                         "input_sha256": _sha256_text(work.client.note_text),
@@ -182,9 +201,10 @@ def _classify_batch(
     store: ClassificationStore,
     system_prompt: str,
     works: list[ClassificationWork],
+    output_schema: type[BaseModel],
 ) -> list[ClassificationResult]:
     requests = [
-        (system_prompt, work.task_prompt, ClassificationOutput, "ClassificationOutput")
+        (system_prompt, work.task_prompt, output_schema, output_schema.__name__)
         for work in works
     ]
     results = [ClassificationResult() for _ in works]
@@ -194,14 +214,14 @@ def _classify_batch(
         return [ClassificationResult(error=exc) for _ in works]
 
     repair_indices: list[int] = []
-    repair_requests: list[tuple[str, str, type[ClassificationOutput], str]] = []
+    repair_requests: list[tuple[str, str, type[BaseModel], str]] = []
     for index, (work, completion) in enumerate(zip(works, completions, strict=True)):
         if completion.error is not None:
             results[index].error = completion.error
             continue
         raw = completion.text or ""
         try:
-            output = ClassificationOutput.model_validate_json(raw)
+            output = output_schema.model_validate_json(raw)
             _validate_client_id(output, work.client.client_id)
         except (ValidationError, ValueError) as exc:
             messages = _validation_messages(exc)
@@ -216,10 +236,10 @@ def _classify_batch(
                         work.task_prompt,
                         raw,
                         messages,
-                        ClassificationOutput,
+                        output_schema,
                     ),
-                    ClassificationOutput,
-                    "ClassificationOutputRepair",
+                    output_schema,
+                    f"{output_schema.__name__}Repair",
                 )
             )
             continue
@@ -242,7 +262,7 @@ def _classify_batch(
             continue
         raw = completion.text or ""
         try:
-            output = ClassificationOutput.model_validate_json(raw)
+            output = output_schema.model_validate_json(raw)
             _validate_client_id(output, work.client.client_id)
         except (ValidationError, ValueError) as exc:
             messages = _validation_messages(exc)
@@ -259,10 +279,11 @@ def _classify_batch(
     return results
 
 
-def _validate_client_id(output: ClassificationOutput, expected: str) -> None:
-    if output.client_id != expected:
+def _validate_client_id(output: BaseModel, expected: str) -> None:
+    client_id = getattr(output, "client_id", None)
+    if client_id != expected:
         raise ValueError(
-            f"client_id must equal the requested ID {expected!r}; got {output.client_id!r}"
+            f"client_id must equal the requested ID {expected!r}; got {client_id!r}"
         )
 
 
@@ -300,7 +321,11 @@ def _record_raw(
 
 
 def _request_fingerprint(
-    *, client: ClientNote, prompts_hash: str, model_config: ModelConfig
+    *,
+    client: ClientNote,
+    prompts_hash: str,
+    model_config: ModelConfig,
+    prompt_style: str = "standard",
 ) -> str:
     payload: dict[str, Any] = {
         "architecture": ARCHITECTURE_VERSION,
@@ -308,6 +333,7 @@ def _request_fingerprint(
         "sp_text": client.sp_text,
         "assessment_text": client.assessment_text,
         "prompt_bundle_sha256": prompts_hash,
+        "prompt_style": prompt_style,
         "model_config": model_config.model_dump(),
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))

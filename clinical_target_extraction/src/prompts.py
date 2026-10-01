@@ -12,17 +12,32 @@ from .data import ClientNote
 
 
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
-PROMPT_FILES = {
-    "system": "classification_system.txt",
-    "classification": "classification.txt",
+PROMPT_STYLES = {
+    "standard": {
+        "system": "classification_system.txt",
+        "classification": "classification.txt",
+    },
+    "brief-reasoning": {
+        "system": "classification_brief_reasoning_system.txt",
+        "classification": "classification_brief_reasoning.txt",
+    },
 }
 PLACEHOLDER = re.compile(r"{{\s*([a-zA-Z0-9_]+)\s*}}")
 
 
-def load_prompts(prompt_dir: Path = PROMPT_DIR) -> dict[str, str]:
+def load_prompts(
+    prompt_style: str = "standard",
+    prompt_dir: Path = PROMPT_DIR,
+) -> dict[str, str]:
+    try:
+        prompt_files = PROMPT_STYLES[prompt_style]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unknown prompt style {prompt_style!r}; choose from {sorted(PROMPT_STYLES)}"
+        ) from exc
     return {
         name: (prompt_dir / filename).read_text(encoding="utf-8").strip()
-        for name, filename in PROMPT_FILES.items()
+        for name, filename in prompt_files.items()
     }
 
 

@@ -17,6 +17,7 @@ from .data import (
     load_clients,
 )
 from .model_client import ModelConfig
+from .prompts import PROMPT_STYLES
 from .run_classification import process_clients
 from .settings import MODEL_PRESETS, resolve_model_path
 
@@ -55,6 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the checkpoint path (only valid for one model)",
     )
     parser.add_argument("--output", type=Path, default=Path("outputs"))
+    parser.add_argument(
+        "--prompt-style",
+        choices=list(PROMPT_STYLES),
+        default="standard",
+        help="Use the original prompt or request a concise evidence-based rationale",
+    )
     parser.add_argument("--client-id", action="append", help="Repeat to select clients")
     parser.add_argument(
         "--max-clients",
@@ -151,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
                 model_config=_model_config(args, model_name),
                 output_root=args.output.expanduser().resolve(),
                 batch_size=args.batch_size,
+                prompt_style=args.prompt_style,
             )
         print("\n>>> Finished")
         print(json.dumps(summaries, indent=2))
