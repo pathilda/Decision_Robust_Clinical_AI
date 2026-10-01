@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "clinical-target-extraction"
-version = "0.4.0"
-description = "Rolling-profile, auditable clinical-target extraction from de-identified notes"
+name = "clinical-treatment-classification"
+version = "1.0.0"
+description = "Client-level treatment-difficulty classification from de-identified pre-treatment text"
 requires-python = ">=3.10"
 dependencies = [
   "pandas>=2.0",
@@ -19,18 +19,20 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
 parquet = ["pyarrow>=14"]
+opendecider = ["opendecider[small]>=0.1.2"]
 
 [project.scripts]
-clinical-target-extraction = "clinical_target_extraction.src.cli:main"
+clinical-treatment-classification = "clinical_target_extraction.src.cli:main"
+clinical-opendecider = "opendecider_inference.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["clinical_target_extraction*"]
+include = ["clinical_target_extraction*", "opendecider_inference*"]
 
 [tool.setuptools.package-data]
 clinical_target_extraction = ["prompts/*.txt"]
 
 [tool.pytest.ini_options]
-testpaths = ["clinical_target_extraction/tests"]
+testpaths = ["clinical_target_extraction/tests", "opendecider_inference/tests"]
 
 [tool.ruff]
 line-length = 100

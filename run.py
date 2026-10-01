@@ -1,4 +1,4 @@
-"""Single command-line entry point for the clinical target extraction pipeline."""
+"""Single command-line entry point for pre-treatment client classification."""
 
 from clinical_target_extraction.src.cli import main
 
