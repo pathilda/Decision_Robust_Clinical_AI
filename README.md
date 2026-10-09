@@ -1,29 +1,44 @@
-# Sequential Clinical Target Extraction
+# Pre-treatment Client Classification
 
-This repository processes de-identified clinical session notes in chronological order for each
-client. Session 1 creates an initial target profile. Every later session receives only the
-immediately previous JSON profile plus the current note and emits the next complete profile.
-It records verbatim evidence, treatment and observation flags, adjacent-session change, stable
-target IDs, carry-forward state, and resumable checkpoints.
+This repository classifies each client once from de-identified pre-treatment information. There
+is no session sequence or rolling profile. Each Excel row represents one client; the pipeline
+combines that row's service-planning and assessment text into one source-labeled note and asks a
+local LLM to assign exactly one category:
 
-Normal use goes through one file: `run.py`. Extraction loads vLLM directly in the Python process;
-it does not start an HTTP/API server.
+- `Easy to treatment`
+- `Moderate to treatment`
+- `severe to treatment`
 
-## Input
+Normal use goes through `run.py`. Inference uses vLLM directly in the Python process and does not
+start an HTTP server.
 
-The Excel workbook must contain these columns:
+## Input workbook
+
+The Excel workbook must contain these exact column names by default:
 
 | Column | Meaning |
 | --- | --- |
-| `ID` | De-identified client ID |
-| `statement2` | Session note |
+| `Client AlayaCare Client ID` | Unique, de-identified client ID |
+| `SP text` | Service-planning text |
+| `assessment text` | Assessment text |
 
-Rows must already be ordered from session 1 to session n for each client. After the last session
-of one client, the next row starts session 1 of the next client. A client ID may not reappear in a
-later block.
+When a client ID occurs on multiple rows, the pipeline analyzes only that client's first row and
+reports the number of repeated clients and later rows it ignored. One of the two text cells may be
+blank, but they cannot both be blank on the selected first row. The pipeline keeps the sources distinguishable when
+it creates the one combined note:
 
-The pipeline derives session numbers from row order and creates note IDs such as
-`C001::S0001`.
+```text
+<SERVICE_PLANNING_TEXT>
+...
+</SERVICE_PLANNING_TEXT>
+
+<ASSESSMENT_TEXT>
+...
+</ASSESSMENT_TEXT>
+```
+
+Use `--id-column`, `--sp-column`, or `--assessment-column` only when the workbook intentionally
+uses different headers.
 
 ## Installation
 
@@ -45,30 +60,22 @@ python -c "from vllm import LLM; print('vLLM offline API is available')"
 python run.py --help
 ```
 
-The project is intended to load one model at a time on one H100 GPU.
+## Models
 
-## Download the models
+The built-in model presets expect these checkpoint directories below `MODEL_ROOT`:
 
-Authenticate without putting a Hugging Face token in this repository:
-
-```bash
-hf auth login
-hf auth whoami
+```text
+Models/
+├── Qwen/
+├── MedGemma/
+└── GPT_OSS/
 ```
 
-MedGemma is gated. Accept its terms on the
-[MedGemma model page](https://huggingface.co/google/medgemma-27b-text-it) before downloading.
-
-Create the model directory used by the CLI:
+For example:
 
 ```bash
 export MODEL_ROOT=/scratch/pathilda/Models
-mkdir -p "$MODEL_ROOT"
-```
 
-Download each checkpoint into the expected directory:
-
-```bash
 hf download Qwen/Qwen3-30B-A3B-Instruct-2507 \
   --local-dir "$MODEL_ROOT/Qwen"
 
@@ -81,269 +88,167 @@ hf download openai/gpt-oss-120b \
   --local-dir "$MODEL_ROOT/GPT_OSS"
 ```
 
-The directory should look like this:
-
-```text
-/scratch/pathilda/Models/
-├── Qwen/
-├── MedGemma/
-└── GPT_OSS/
-```
+MedGemma is gated; accept its model terms before downloading it.
 
 ## Commands
 
-### 1. Inspect and validate the workbook
-
-This command does not load a model:
+Inspect and validate a workbook without loading an LLM:
 
 ```bash
 python run.py \
   --pipeline inspect \
-  --input /scratch/pathilda/deidentified_notes.xlsx
+  --input /scratch/pathilda/pre_treatment_clients.xlsx \
+  --sheet Clients
 ```
 
-For a named Excel sheet:
+Classify every client with Qwen:
 
 ```bash
 python run.py \
-  --pipeline inspect \
-  --input /scratch/pathilda/deidentified_notes.xlsx \
-  --sheet Notes
-```
-
-### 2. Run a small Qwen test
-
-```bash
-python run.py \
-  --pipeline extract \
+  --pipeline classify \
   --model qwen \
   --model-root /scratch/pathilda/Models \
-  --input /scratch/pathilda/deidentified_notes.xlsx \
-  --output /scratch/pathilda/clinical_target_results \
-  --max-clients 3 \
+  --input /scratch/pathilda/pre_treatment_clients.xlsx \
+  --sheet Clients \
+  --output /scratch/pathilda/client_classification_results \
   --deidentified-confirmed
 ```
 
-This single command:
-
-1. validates the input;
-2. loads Qwen directly with the offline `vllm.LLM` API;
-3. displays vLLM logs and model-loading progress;
-4. initializes the offline inference engine;
-5. submits direct prompt batches with vLLM's native generation progress bar;
-6. writes checkpoints and final outputs;
-7. releases the offline vLLM engine and GPU.
-
-### 3. Run the complete workbook with one model
-
-Omit `--max-clients` to process every client:
+For a small validation run, add `--max-clients 3`. To select particular clients, repeat
+`--client-id`:
 
 ```bash
 python run.py \
-  --pipeline extract \
+  --pipeline classify \
   --model qwen \
-  --model-root /scratch/pathilda/Models \
-  --input /scratch/pathilda/deidentified_notes.xlsx \
-  --output /scratch/pathilda/clinical_target_results \
-  --deidentified-confirmed
-```
-
-Use `--model medgemma` or `--model gpt_oss` for the other checkpoints.
-
-### 4. Run all three models sequentially
-
-```bash
-python run.py \
-  --pipeline extract \
-  --model all \
-  --model-root /scratch/pathilda/Models \
-  --input /scratch/pathilda/deidentified_notes.xlsx \
-  --output /scratch/pathilda/clinical_target_results \
-  --deidentified-confirmed
-```
-
-The CLI loads only one model at a time. It releases one offline engine before loading the next
-model. Outputs are separated into `qwen`, `medgemma`, and `gpt_oss` directories.
-
-### 5. Run selected clients
-
-Repeat `--client-id` for each desired client:
-
-```bash
-python run.py \
-  --pipeline extract \
-  --model qwen \
-  --input /scratch/pathilda/deidentified_notes.xlsx \
-  --output /scratch/pathilda/clinical_target_results \
+  --input /scratch/pathilda/pre_treatment_clients.xlsx \
+  --output /scratch/pathilda/client_classification_results \
   --client-id C001 \
   --client-id C014 \
   --deidentified-confirmed
 ```
 
-## Useful options
+Use `--model medgemma`, `--model gpt_oss`, or `--model all`. With `all`, models run sequentially
+and their results are kept in separate directories. Independent clients are submitted in direct
+batches; adjust `--batch-size` if needed.
+
+### Optional brief-reasoning prompt
+
+The original prompt remains the default and is unchanged. To ask Qwen or MedGemma for a concise,
+evidence-based reasoning summary before the category, add:
 
 ```text
---sheet Notes                  Excel sheet name
---id-column ID                 Override the client-ID column
---note-column statement2       Override the note-text column
---max-clients 5                Run only the first five clients
---client-id C001               Select one client; may be repeated
---max-model-len 131072         Total input-plus-output context limit
---max-tokens 32768             Maximum generated tokens per model response
---batch-size 8                 Maximum active sequences in direct vLLM generation
---gpu-memory-utilization 0.90  Change vLLM's GPU-memory fraction
+--prompt-style brief-reasoning
 ```
 
-Run `python run.py --help` for the complete list.
+For example, in Jupyter:
 
-### Running from Jupyter
-
-Use the same CLI through a bash cell; nothing else changes:
-
-```bash
-%%bash
-python run.py \
-  --pipeline extract \
-  --model qwen \
-  --model-root /scratch/pathilda/Models \
-  --input /scratch/pathilda/deidentified_notes.xlsx \
-  --output /scratch/pathilda/clinical_target_results \
-  --max-clients 3 \
+```python
+!python run.py \
+  --pipeline classify \
+  --model medgemma \
+  --input "$EXCEL" \
+  --model-root "$MODEL_ROOT" \
+  --output "$OUTPUT" \
+  --prompt-style brief-reasoning \
+  --batch-size 1 \
   --deidentified-confirmed
 ```
 
-The cell stays active while extraction runs and shows the native vLLM loading logs plus the
-session progress bar.
-
-### Fast batched execution
-
-The extraction path now uses the same inference structure as the earlier repository: it creates
-an in-process `vllm.LLM` object and passes prompt lists directly to
-`LLM.generate(..., use_tqdm=True)`. There is no HTTP layer. Each generation wave contains the
-next eligible session from every active client. vLLM batches that list on the H100 while the
-pipeline preserves chronological dependencies inside each client.
-
-```bash
-python run.py \
-  --pipeline extract \
-  --model qwen \
-  --model-root /scratch/pathilda/Models \
-  --input /scratch/pathilda/deidentified_notes.xlsx \
-  --output /scratch/pathilda/clinical_target_results \
-  --batch-size 8 \
-  --deidentified-confirmed
-```
-
-Sessions belonging to one client remain strictly sequential because session n depends on the
-JSON profile from session n-1. Raw notes and model responses from older sessions are not repeated
-in the prompt. With multiple clients, each wave is generated as one direct batch. A run containing
-only one client cannot batch dependent sessions.
-
-There is one normal model call per session. A later-session call handles existing targets,
-carry-forward, change classification, and genuinely new targets together. Python assigns new
-`T###` identifiers, so there is no separate canonicalization call. Only structurally invalid JSON
-can trigger one repair call.
-If a model or GPU allocation runs out of memory, retry with `--batch-size 4`, then `2`, then `1`.
-The old `--concurrency` spelling remains accepted as an alias for `--batch-size`.
-
-### Alliance clusters without `nvcc`
-
-Before importing vLLM, the pipeline sets `VLLM_USE_FLASHINFER_SAMPLER=0`. This prevents
-FlashInfer's sampling warm-up from trying to JIT-compile a CUDA kernel when `nvcc` or
-`/usr/local/cuda` is unavailable. vLLM uses its native sampler instead; the model's
-FlashAttention attention backend remains available.
+This mode returns `brief_reasoning` followed by `treatment_category` in structured JSON. The
+reasoning is limited to a short summary of documented evidence; it is not a request for hidden or
+detailed chain-of-thought. Its results are stored separately under
+`<output>/<model>_brief_reasoning/`. Omit the option, or use `--prompt-style standard`, to run the
+unchanged original prompt under `<output>/<model>/`.
 
 ## Output
 
-Each model writes into its own directory:
-
-```text
-/scratch/pathilda/clinical_target_results/
-├── qwen/
-├── medgemma/
-└── gpt_oss/
-```
-
-Each directory contains:
+Each model writes to `<output>/<model>/`:
 
 ```text
 run_config.json
 raw_responses.jsonl
-validated_sessions.jsonl
+validated_classifications.jsonl
 failures.jsonl
-registries/
-session_targets.csv
-target_changes.csv
-pairwise_comparisons.csv
+client_classifications.csv
+client_classifications.xlsx
+client_classifications.parquet  # when a Parquet engine is installed
 ```
 
-CSV analysis tables are always written. If `pyarrow` or `fastparquet` is available, equivalent
-`.parquet` files are written as an additional convenience; Parquet support is not required.
+The flat CSV and Excel result files contain one row per successfully classified selected client,
+including `Client AlayaCare Client ID` and `treatment_category`. JSONL checkpoints retain validation and reproducibility
+metadata. Re-running an unchanged client/model/prompt combination reuses its validated result;
+changed input is classified again.
 
-`validated_sessions.jsonl` stores both the raw schema-conforming model output and the complete
-`session_profile` passed to the next session. `session_targets.csv` has one row per
-client-session-target, including:
+Brief-reasoning runs also include `prompt_style` and `brief_reasoning` in the flat result files.
 
-```text
-verbatim_evidence
-evidence_source_session
-substantively_treated
-performance_observed
-change_from_previous
-carried_forward
-newly_added
-```
+The category is an LLM-generated operational classification, not a diagnosis, causal conclusion,
+or substitute for clinical judgment. Inputs must be de-identified, which the classification
+command enforces through `--deidentified-confirmed`.
 
-`target_changes.csv` contains only adjacent transitions: `improved`, `stable`, `worsened`,
-`not_assessed`, or `new`. For compatibility, `pairwise_comparisons.csv` contains the same
-adjacent-only rows and identifies its scope as `immediately_previous_profile`; it no longer
-contains every historical session pair. It also provides derived binary `comparable`, `better`,
-and `worse` columns alongside the one-hot change columns.
+## Local OpenDecider backend
 
-Evidence mismatches and inconsistent carry-forward combinations are preserved under
-`quality_warnings` instead of causing a repair. Hard validation is limited to schema-conforming
-JSON, valid identifiers, and exactly one update for every target in the previous profile.
+A separate local-only OpenDecider framework is available in
+[`opendecider_inference/`](opendecider_inference/README.md). It uses an independently downloaded
+Qwen3-30B-A3B base and OpenDecider adapter, accepts the same workbook and category rubric, and
+writes a comparable classification table plus confidence and all three category probabilities.
+OpenDecider does not have a brief-reasoning option: it is a typed decision model that returns a
+category distribution rather than generated explanatory text.
 
-The pipeline checkpoints JSONL, the complete session profile, and the client registry after every
-successful session. Rerunning the same command reuses valid checkpoints when the current note,
-previous profile, prompts, model settings, and registry have not changed. The derived CSV/Parquet
-tables are materialized once at the end of the run.
+## Compare model configurations
 
-The rolling-profile contract is versioned as `rolling_snapshot_v1`. Checkpoints from the former
-all-history architecture do not match its fingerprints and are recomputed automatically. Use a
-fresh `--output` directory when you want the cleanest before/after speed comparison.
-
-## Architecture
-
-```text
-run.py
-  └── cli.py
-      ├── data.py          input validation and session ordering
-      ├── settings.py      Qwen, MedGemma, and GPT-OSS presets
-      └── run_extraction.py
-          ├── prompts.py
-          ├── model_client.py  direct vllm.LLM.generate batching
-          ├── validate.py
-          ├── registry.py
-          └── output_store.py
-```
-
-For every client, session 1 receives its note and creates the initial profile. Session n receives
-only profile n-1 and note n. When a prior target is absent from note n, the model copies its prior
-verbatim evidence and source-session number, sets `carried_forward=1`, and records
-`change_from_previous="not_assessed"`. When a genuinely new target appears, the same response
-describes it and Python assigns the next stable ID.
-
-This avoids repeating all prior notes and all prior structured outputs, and removes the former
-all-pairs comparison and canonicalization-call loops. Invalid structured output still gets one
-repair attempt. Each batch contains at most one session per client, and vLLM keeps up to
-`--batch-size` sequences active while displaying its native TQDM progress.
-
-## Tests
+The reusable comparison command accepts any number of named CSV, Excel, or Parquet result files.
+It creates the category distribution plus exact-agreement and quadratic-weighted Cohen's kappa
+matrices as CSV tables and publication-ready PNG figures.
 
 ```bash
-pytest -q
+python -m model_comparison \
+  --input "QS=/path/to/results/qwen/client_classifications.xlsx" \
+  --input "QR=/path/to/results/qwen_brief_reasoning/client_classifications.xlsx" \
+  --input "MS=/path/to/results/medgemma/client_classifications.xlsx" \
+  --input "MR=/path/to/results/medgemma_brief_reasoning/client_classifications.xlsx" \
+  --input "OD=/path/to/results/opendecider/client_classifications.xlsx" \
+  --output /path/to/results/model_comparison \
+  --title "Treatment-difficulty model agreement"
 ```
 
-Only de-identified clinical notes may be used. `--deidentified-confirmed` is deliberately
-required before inference.
+By default, all tables use the intersection of client IDs present in every input so every system
+is evaluated on the same cohort. See [`model_comparison/`](model_comparison/README.md) for custom
+column names, ordinal categories, and pairwise-cohort analysis.
+
+## Patient chunks and allocation commands
+
+The new [`patient_assignment/`](patient_assignment/README.md) package adds
+`python run.py chunk`, `python run.py solve`, and `python run.py compare-assignments`.
+It provides reusable patient membership, Gurobi lexicographic allocation, matched or
+independently randomized optimal comparisons, reference-based regret, and provenance reports.
+Install optional optimization support with `python -m pip install -e '.[optimization]'`.
+See the package guide for a complete workflow and `Deployment_NEW.ipynb` for compute-node
+license setup and unexecuted examples.
+
+Both inference backends now accept repeatable `--discipline PT|OT|SLP` and
+`--employee-column` (default `Employee Submission Full Name`). Filtering uses the first
+source row per normalized patient ID, before client selection/limits, and adds no employee
+names to prompts. Classification comparison accepts the same filter with `--source-input`,
+`--source-sheet`, and `--source-id-column`; its intersection/pairwise behavior remains.
+Allocation comparison requires complete coverage of saved membership and never intersects
+prediction cohorts. New output directories must be empty/absent. Use fresh inference
+directories when changing configurations: historical selected checkpoint records can still
+appear in exports after a changed request fails; this enhancement does not migrate old records.
+
+## Useful inference options
+
+```text
+--sheet Clients                 Excel sheet name
+--id-column "Client AlayaCare Client ID"
+--sp-column "SP text"          Service-planning column
+--assessment-column "assessment text"
+--prompt-style standard         Original unchanged prompt
+--prompt-style brief-reasoning  Concise evidence summary plus category
+--max-clients 5                Process only the first five clients
+--client-id C001               Select one client; may be repeated
+--max-model-len 131072         Total input-plus-output context limit
+--max-tokens 256               Maximum generated tokens per classification
+--batch-size 8                 Clients per direct inference batch
+--gpu-memory-utilization 0.92  vLLM GPU-memory fraction
+```

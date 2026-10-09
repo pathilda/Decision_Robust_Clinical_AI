@@ -212,7 +212,7 @@ def repair_prompt(
     return (
         "TASK: REPAIR INVALID STRUCTURED OUTPUT\n\n"
         "Return a corrected response for the original task. Correct structural and schema "
-        "errors while preserving the model's substantive binary judgments. Return only compact "
+        "errors while preserving the model's substantive classification. Return only compact "
         "JSON matching the schema.\n\n"
         f"<VALIDATION_ERRORS>\n{json.dumps(validation_errors, indent=2)}\n"
         "</VALIDATION_ERRORS>\n\n"
