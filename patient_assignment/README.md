@@ -236,6 +236,16 @@ incumbents/optima; they are never substituted for the selected comparison pair.
 including a side whose partner has no incumbent; only complete pairs get comparison metrics.
 Every comparison/selected-allocation row includes mode and repeat ID.
 
+At completion, comparison also prints patient agreement across the union of chunks:
+evaluated/total patients, same/different clinician counts, agreement percentage, and
+a clinician cross-tabulation (rows = model A, columns = model B). Only certified
+assignments contribute; incomplete coverage is explicitly reported. Random repeats
+are reported separately, without counting repeated patients as new patients.
+These results are saved in `patient_agreement_summary.csv` and
+`clinician_agreement_matrix.csv`, and the summary is included under
+`patient_agreement_by_repeat` in `comparison_summary.json`. Chunks still optimize
+independently; these reports pool their saved assignments.
+
 Statuses, incumbent availability, bounds, gaps, runtimes, and certification flags distinguish
 failures from zero disagreement/regret. Uncertified stage 1 never advances to stage 2;
 uncertified components never enter optimal-set selection. Interrupted matching candidates

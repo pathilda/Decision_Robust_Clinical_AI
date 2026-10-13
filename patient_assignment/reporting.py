@@ -131,6 +131,53 @@ def describe(values):
     }
 
 
+def write_patient_agreement(output, assignments, chunks, mode, repeats, clinicians, labels):
+    """Pool certified patient assignments across chunks, separately for each repeat."""
+    names = [c.name for c in clinicians]
+    membership = {p for patients in chunks.values() for p in patients}
+    summaries, matrices = [], []
+    for repeat in range(1, repeats + 1):
+        selected = [
+            r for r in assignments
+            if r["selection_certified"] and r["repeat_id"] == repeat
+            and r["selection_mode"] == mode
+        ]
+        ids = [r["patient_id"] for r in selected]
+        if len(ids) != len(set(ids)) or not set(ids) <= membership:
+            raise ValueError("Pooled agreement requires unique membership patients per repeat")
+        counts = {(a, b): 0 for a in names for b in names}
+        for row in selected:
+            counts[row["selected_clinician_A"], row["selected_clinician_B"]] += 1
+        same = sum(counts[name, name] for name in names)
+        evaluated = len(selected)
+        summary = {
+            "selection_mode": mode, "repeat_id": repeat,
+            "label_A": labels["a"], "label_B": labels["b"],
+            "membership_patients": len(membership), "evaluated_patients": evaluated,
+            "coverage_complete": evaluated == len(membership),
+            "same_clinician": same, "different_clinician": evaluated - same,
+            "agreement_percent": 100 * same / evaluated if evaluated else None,
+        }
+        summaries.append(summary)
+        print(f"\nPatient agreement across all chunks ({mode}, repeat {repeat}; certified only)")
+        print(f"Patients evaluated: {evaluated:,} / {len(membership):,}")
+        print(f"Same clinician: {same:,}\nDifferent clinician: {evaluated - same:,}")
+        print(f"Overall agreement: {summary['agreement_percent']:.2f}%" if evaluated
+              else "Overall agreement: unavailable (no certified assignments)")
+        if not summary["coverage_complete"]:
+            print("Incomplete coverage: agreement covers certified chunks only.")
+        print(f"Clinician counts: rows = {labels['a']}, columns = {labels['b']}")
+        print("clinician_A\t" + "\t".join(names))
+        for a in names:
+            print(a + "\t" + "\t".join(str(counts[a, b]) for b in names))
+            matrices.append({"selection_mode": mode, "repeat_id": repeat,
+                             "clinician_A": a,
+                             **{f"clinician_B:{b}": counts[a, b] for b in names}})
+    write_csv(output / "patient_agreement_summary.csv", summaries)
+    write_csv(output / "clinician_agreement_matrix.csv", matrices)
+    return summaries
+
+
 def comparison_summary(rows, chunks, mode, repeats):
     certified = [r for r in rows if r.get("selection_certified")]
     per_chunk = []

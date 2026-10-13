@@ -31,6 +31,7 @@ from .reporting import (
     fresh_directory,
     write_csv,
     write_json,
+    write_patient_agreement,
 )
 from .selection import (
     RANDOM_ALGORITHM,
@@ -610,6 +611,10 @@ def run_comparison(args, session, output, clinicians, chunks, labels, prediction
         ),
     )
     summary = comparison_summary(results, chunks, args.selection_mode, args.selection_repeats)
+    summary["patient_agreement_by_repeat"] = write_patient_agreement(
+        output, assignments, chunks, args.selection_mode, args.selection_repeats,
+        clinicians, labels,
+    )
     write_json(output / "comparison_summary.json", summary)
     return 0 if summary["complete"] else 1
 
