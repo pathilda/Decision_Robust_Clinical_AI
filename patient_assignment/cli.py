@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from copy import copy
 from pathlib import Path
 
 from .chunking import create_chunks
@@ -57,8 +58,12 @@ def build_parser():
     chunk.add_argument("--chunk-size", type=int, required=True)
     chunk.add_argument("--seed", type=int, default=42)
     chunk.add_argument("--output", type=Path, required=True)
-    for command in ("solve", "compare-assignments"):
-        sub = commands.add_parser(command)
+    for command in ("solve", "compare-assignments", "compare-all"):
+        sub = commands.add_parser(
+            command,
+            help="Compare treatment categories, matched assignments, and random optimal assignments"
+            if command == "compare-all" else None,
+        )
         sub.add_argument("--chunks", type=Path, required=True)
         sub.add_argument(
             "--clinician",
@@ -83,10 +88,12 @@ def build_parser():
             sub.add_argument("--id-column" + suffix, default=ID_COLUMN)
             sub.add_argument("--category-column" + suffix, default="treatment_category")
             sub.add_argument("--sheet" + suffix)
-        if command == "compare-assignments":
-            sub.add_argument("--selection-mode", choices=("matched", "random"), default="matched")
+        if command in {"compare-assignments", "compare-all"}:
+            if command == "compare-assignments":
+                sub.add_argument("--selection-mode", choices=("matched", "random"), default="matched")
             sub.add_argument("--selection-seed", type=int, default=42)
-            sub.add_argument("--selection-repeats", type=int, default=1)
+            sub.add_argument("--selection-repeats", type=int,
+                             default=20 if command == "compare-all" else 1)
             sub.add_argument("--reference-side", choices=("A", "B"))
     return parser
 
@@ -620,11 +627,24 @@ def run_comparison(args, session, output, clinicians, chunks, labels, prediction
 
 
 def main(argv=None):
-    args = build_parser().parse_args(argv)
+    return execute_args(build_parser().parse_args(argv))
+
+
+def execute_args(args):
     output = None
     try:
         if args.command == "chunk":
             return create_chunks(args)
+        if args.command == "compare-all":
+            # Validate the full shared cohort and random options before creating reports.
+            validation_args = copy(args)
+            validation_args.command = "compare-assignments"
+            validation_args.selection_mode = "random"
+            _, _, chunks, labels, predictions, _ = preflight(validation_args)
+            from .comparison_bundle import run_all
+
+            output = fresh_directory(args.output)
+            return run_all(args, output, chunks, labels, predictions)
         settings, clinicians, chunks, labels, predictions, notes = preflight(args)
         output = fresh_directory(args.output)
         with SolverSession(settings) as session:

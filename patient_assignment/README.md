@@ -1,6 +1,6 @@
 # Patient assignment
 
-This package extends the existing classification framework with three commands. The
+This package extends the existing classification framework with four commands. The
 classification labels, prompts, model settings, and legacy entry points remain available.
 New code is separated into `cohort.py`, `inputs.py`, `chunking.py`, `optimization.py`,
 `selection.py`, `reporting.py`, and `cli.py`. Nothing invokes inference to allocate patients.
@@ -14,6 +14,7 @@ python -m pip install gurobipy
 python run.py chunk --help
 python run.py solve --help
 python run.py compare-assignments --help
+python run.py compare-all --help
 ```
 
 `python -m patient_assignment` and installed `clinical-patient-assignment` accept the same
@@ -130,6 +131,34 @@ For randomized optimal selection, append `--selection-mode random --selection-se
 in either mode. `--reference-side A` is supported. Never infer reference status from a label.
 
 ## Severity, clinicians, and feasibility
+
+### Combined extraction and assignment comparison
+
+`compare-all` compares the extracted treatment categories and runs both matched and
+random optimal assignment comparisons in one command:
+
+```bash
+python run.py compare-all --chunks scenarios/slp_50_seed42/chunks.csv \
+  --predictions-a results/qwen_run1/qwen/client_classifications.xlsx --label-a QS \
+  --predictions-b results/medgemma_run1/medgemma/client_classifications.xlsx --label-b MS \
+  --clinician A 12 24 --clinician B 10 27 --clinician C 14 22 \
+  --clinician-capacity 35 --threads 20 --time-limit 300 \
+  --selection-seed 42 --selection-repeats 20 --output comparisons/slp_all_run1
+```
+
+All three comparisons use exactly the union of the saved chunk membership. Missing
+labels fail before report generation; predictions outside membership are excluded.
+Extraction here means treatment-category agreement (distributions, exact agreement,
+quadratic weighted kappa), not agreement of free-text evidence spans. Separate
+`--id-column-a/b`, `--category-column-a/b`, and `--sheet-a/b` options are supported.
+Outputs are grouped into `extraction/`, `matched/`, and `random/`. Both assignment
+modes print and save pooled patient agreement and clinician tables. Random repeats
+default to 20; matched always uses one selection. `--selection-mode` is unnecessary.
+`--time-limit` remains per solver stage. A time-limited matched comparison does not
+prevent the random comparison from running. `comparison_bundle_status.json` records
+each stage's exit code and completion; overall exit codes are 0 complete, 1
+uncertified/incomplete optimization, and 2 input/dependency/configuration failure.
+Use a fresh output directory. The component optimization is rerun for each mode.
 
 Prediction/reference tables support `.csv`, `.xlsx`, and `.xls`. Defaults are
 `Client AlayaCare Client ID` and `treatment_category`. Solve accepts `--id-column`,
