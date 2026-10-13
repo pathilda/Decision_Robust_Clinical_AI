@@ -126,7 +126,7 @@ python run.py compare-assignments --chunks scenarios/slp_50_seed42/chunks.csv \
   --clinician-capacity 35 --output comparisons/QS_vs_reference_matched_run1
 ```
 
-For randomized optimal selection, append `--selection-mode random --selection-seed 42
+For randomized optimal selection, append `--selection-mode random --solver-seed 0
 --selection-repeats 20` and use a new output directory. Reference declaration is optional
 in either mode. `--reference-side A` is supported. Never infer reference status from a label.
 
@@ -143,7 +143,7 @@ python run.py compare-all --chunks scenarios/slp_50_seed42/chunks.csv \
   --predictions-b results/medgemma_run1/medgemma/client_classifications.xlsx --label-b MS \
   --clinician A 12 24 --clinician B 10 27 --clinician C 14 22 \
   --clinician-capacity 35 --threads 20 --time-limit 300 \
-  --selection-seed 42 --selection-repeats 20 --output comparisons/slp_all_run1
+  --solver-seed 0 --selection-repeats 20 --output comparisons/slp_all_run1
 ```
 
 All three comparisons use exactly the union of the saved chunk membership. Missing
@@ -222,20 +222,26 @@ are identical. A model can have different matched allocations against different 
 Ties use the solver-selected closest pair: no regret objective, ID tie-break, or uniqueness
 promise is added. Seeds/settings/order and exact assignments provide traceability.
 
-Random mode independently minimizes a continuous random linear objective over each side's
-certified optimal set. It never invokes joint matching or consults the partner/reference
-to select an AI allocation. This is **not uniform sampling over all optimal allocations**.
-Coefficient order is sorted patient ID then sorted clinician ID. A stable SHA256 digest
-of compact UTF-8 JSON `[selection_seed, chunk_id, repeat_id, model_label]` seeds a local
-Python MT19937 RNG drawing `random()` in [0,1). Partner label, A/B position, and reference
-designation are excluded. Model labels must be unique/stable across comparisons.
-Substream and coefficient checksums are saved in `selection_streams.json`.
+Random mode independently reruns the original two-stage lexicographic optimization
+for each model and each repeat, using Gurobi `Seed = solver_seed + repeat_id - 1`.
+There are no random costs or extra selection objectives. Both models use the same
+seed in each repeat, and the schedule is reused across chunks. With `--solver-seed 0`
+and `--selection-repeats 20`, seeds are 0 through 19. Changing model labels, partner,
+reference designation, or A/B position does not change the seed schedule.
+The effective seed and stage diagnostics are saved in `selection_streams.json`;
+selected assignments, incumbents, and comparison results also record `solver_seed`.
+Seeds change the solver search, not the workload objectives. Repeats may return the
+same assignment and are all retained. This is solver-seed sensitivity, not uniform
+sampling over optimal allocations. Initial component solves certify the workload
+optima; each seeded solve is independently certified and checked against those optima.
 
-Selection seed defaults to 42, repeats to 1. Both are recorded inactive in matched mode;
-matched repeats >1 error. Random repeats are numbered from 1 and all are exported without
-choosing the best result. Repeats measure conditional selection sensitivity, not new
-independent patients/chunks. Identical vectors can have nonzero random disagreement,
-while reference regret remains zero. Random results are observed disagreement, never D_min.
+`--selection-seed` is retained only for command compatibility and is inactive.
+Repeats default to 1 in `compare-assignments` and 20 in `compare-all`.
+Matched mode permits only one repeat and continues to minimize disagreement jointly.
+The last repeat seed must not exceed 2000000000. Repeats measure conditional solver
+sensitivity, not new independent patients/chunks. Identical vectors can have nonzero
+random disagreement when solver-selected tied optima differ, while reference regret
+remains zero. Random results are observed disagreement, never D_min.
 
 With an explicit reference, evaluate the **saved selected AI assignment** under reference
 weights and the same initial loads. Regret is its reference severity range minus the
@@ -279,8 +285,10 @@ Statuses, incumbent availability, bounds, gaps, runtimes, and certification flag
 failures from zero disagreement/regret. Uncertified stage 1 never advances to stage 2;
 uncertified components never enter optimal-set selection. Interrupted matching candidates
 are provisional, and their disagreement is an upper bound on the minimum; their bound is
-also saved. Interrupted random-objective incumbents remain in the original optimal sets
-but are provisional because random tie selection is incomplete. Missing incumbents yield
+also saved. Interrupted seeded solves may have nonoptimal workload incumbents. Only incumbents
+verified to attain the certified component optima are exported as selected assignments;
+these remain provisional until both original stages are certified. Stage diagnostics
+are retained even when no eligible selected assignment exists. Missing incumbents yield
 no selected pair/regret. Provisional metrics are excluded from completed aggregates.
 
 Summary reports successful/failed/provisional chunks, coverage, within-chunk mean/min/max

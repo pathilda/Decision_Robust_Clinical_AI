@@ -26,7 +26,7 @@ from patient_assignment.inputs import (
 )
 from patient_assignment.optimization import Optimum, SolverSettings, evaluate
 from patient_assignment.reporting import comparison_summary
-from patient_assignment.selection import coefficients, reference_regret
+from patient_assignment.selection import reference_regret
 
 
 @pytest.mark.parametrize(
@@ -245,15 +245,6 @@ def test_reference_evaluation_explicit_allocations():
     assert reference_regret(bad, patients, clinicians, reference, 2, optimum)["raw_regret"] == "4"
     assert reference_regret(good, patients, clinicians, reference, 2, optimum)["raw_regret"] == "0"
     assert evaluate(good, patients, clinicians, reference, 2)[1:] == (0, Decimal(0))
-
-
-def test_coefficients_partner_side_reference_and_order_independent():
-    original, metadata = coefficients(42, "c", 1, "AI", ["2", "1"], ["B", "A"])
-    reordered, second = coefficients(42, "c", 1, "AI", ["1", "2"], ["A", "B"])
-    assert original == reordered and metadata == second
-    coefficients(42, "different", 4, "other", ["3"], ["C"])
-    assert coefficients(42, "c", 1, "AI", ["1", "2"], ["A", "B"])[0] == original
-    assert coefficients(42, "c", 1, "Reference", ["1", "2"], ["A", "B"])[1] != metadata
 
 
 def test_help_does_not_import_gpu_or_gurobi(capsys):

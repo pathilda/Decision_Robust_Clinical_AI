@@ -1,8 +1,5 @@
-"""Joint closest-pair matching and independent random objectives on optimal sets."""
+"""Joint closest-pair matching and independent Gurobi seed sensitivity."""
 
-import hashlib
-import json
-import random
 from decimal import Decimal
 
 from .optimization import (
@@ -12,25 +9,12 @@ from .optimization import (
     evaluate,
     exact_decimal_sum,
     extract_assignment,
+    solve_lexicographic,
     stage_diagnostics,
     verify_optimal_set,
 )
 
-RANDOM_ALGORITHM = "SHA256(JSON [selection_seed, chunk_id, repeat_id, model_label]) -> Python MT19937; Uniform[0,1) over sorted patient/clinician IDs"
-
-
-def coefficients(seed, chunk_id, repeat_id, label, patients, clinicians):
-    key = json.dumps([seed, chunk_id, repeat_id, label], ensure_ascii=False, separators=(",", ":"))
-    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
-    rng = random.Random(int(digest, 16))
-    values = {(p, c): rng.random() for p in sorted(patients) for c in sorted(clinicians)}
-    encoded = json.dumps(
-        [[p, c, v] for (p, c), v in values.items()], ensure_ascii=False, separators=(",", ":")
-    )
-    return values, {
-        "substream_sha256": digest,
-        "coefficient_sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
-    }
+RANDOM_ALGORITHM = "Original lexicographic objectives; Gurobi Seed = solver_seed + repeat_id - 1; same seed for both models"
 
 
 def add_optimal_allocation(
@@ -81,22 +65,30 @@ def match_optima(
         return a, b, status
 
 
-def random_optimum(session, patients, clinicians, weights, capacity, optimum, values):
-    gp = session.gp
-    with session.model() as model:
-        x = add_optimal_allocation(
-            model, session, patients, clinicians, weights, capacity, optimum, "random"
-        )
-        model.setObjective(
-            gp.quicksum(value * x[key] for key, value in values.items()), gp.GRB.MINIMIZE
-        )
-        model.optimize()
-        status = stage_diagnostics(model, gp)
-        assignment = None
-        if status["has_incumbent"]:
-            assignment = extract_assignment(x, patients, clinicians)
+def random_optimum(session, patients, clinicians, weights, capacity, optimum, seed):
+    """Rerun both original objectives with a different Gurobi search seed."""
+    class SeededSession:
+        gp = session.gp
+
+        def model(self):
+            model = session.model()
+            model.setParam("Seed", seed)
+            return model
+
+    result = solve_lexicographic(SeededSession(), patients, clinicians, weights, capacity)
+    status = dict(result.stages.get("stage2", result.stages["stage1"]))
+    status.update(optimal=result.certified, solver_seed=seed, stages=result.stages)
+    assignment = result.assignment
+    if assignment is not None:
+        try:
             verify_optimal_set(assignment, patients, clinicians, weights, capacity, optimum)
-        return assignment, status
+        except ValueError:
+            if result.certified:
+                raise
+            # An interrupted original solve can have a nonoptimal workload incumbent.
+            # Do not publish it as a selected allocation in the certified optimal set.
+            assignment = None
+    return assignment, status
 
 
 def reference_regret(

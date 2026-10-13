@@ -14,7 +14,7 @@ commands are `python run.py chunk`, `python run.py solve`, and
 - `chunking.py`: seeded metadata-only chunks and manifests.
 - `optimization.py`: lazy Gurobi session, two lexicographic stages, incumbent diagnostics,
   assignment verification, and precise initial/final load reporting.
-- `selection.py`: joint closest-pair MIP, independent random objectives on certified optimal
+- `selection.py`: joint closest-pair MIP, independent original-objective reruns with varying Gurobi seeds on certified optimal
   sets, stable substream/checksums, and evaluation of the actual selected AI assignment.
 - `reporting.py` / `cli.py`: mode-neutral CSV/JSON, component/partial incumbents,
   complete provenance, provisional status, descriptive certified summaries, and exit codes.

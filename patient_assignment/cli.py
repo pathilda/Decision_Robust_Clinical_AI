@@ -36,7 +36,6 @@ from .reporting import (
 )
 from .selection import (
     RANDOM_ALGORITHM,
-    coefficients,
     match_optima,
     random_optimum,
     reference_regret,
@@ -91,7 +90,8 @@ def build_parser():
         if command in {"compare-assignments", "compare-all"}:
             if command == "compare-assignments":
                 sub.add_argument("--selection-mode", choices=("matched", "random"), default="matched")
-            sub.add_argument("--selection-seed", type=int, default=42)
+            sub.add_argument("--selection-seed", type=int, default=42,
+                             help="Deprecated compatibility option; inactive. Use --solver-seed.")
             sub.add_argument("--selection-repeats", type=int,
                              default=20 if command == "compare-all" else 1)
             sub.add_argument("--reference-side", choices=("A", "B"))
@@ -123,6 +123,8 @@ def preflight(args):
     if args.command == "compare-assignments":
         if args.selection_seed < 0 or args.selection_repeats < 1:
             raise ValueError("Selection seed must be nonnegative; repeats must be positive")
+        if args.selection_mode == "random" and args.solver_seed + args.selection_repeats - 1 > 2_000_000_000:
+            raise ValueError("Last repeat solver seed must not exceed 2000000000")
         if args.selection_mode == "matched" and args.selection_repeats != 1:
             raise ValueError("Selection repeats greater than one are random-mode only")
         notes = check_note_hashes(predictions["a"], predictions["b"])
@@ -268,6 +270,7 @@ def save_pair(
             "repeat_id",
             "selection_certified",
             "provisional",
+            "solver_seed",
         )
     }
     for p in patients:
@@ -327,6 +330,13 @@ def save_pair(
 
 
 def run_comparison(args, session, output, clinicians, chunks, labels, predictions):
+    if args.selection_mode == "random":
+        print(
+            f"Random mode: original objectives with Gurobi seeds {args.solver_seed}"
+            f" through {args.solver_seed + args.selection_repeats - 1};"
+            " same seed for both models. --selection-seed is inactive.",
+            flush=True,
+        )
     assignments, loads, results, streams = [], [], [], []
     component_assignments, component_loads, component_results = [], [], []
     selection_incumbents = []
@@ -400,6 +410,7 @@ def run_comparison(args, session, output, clinicians, chunks, labels, prediction
             row = {
                 **base,
                 "repeat_id": repeat,
+                "solver_seed": args.solver_seed + repeat - 1 if args.selection_mode == "random" else args.solver_seed,
                 "selection_certified": False,
                 "provisional": False,
                 "observed_disagreement_count": None,
@@ -440,22 +451,6 @@ def run_comparison(args, session, output, clinicians, chunks, labels, prediction
                     else:
                         pair, statuses = {}, {}
                         for side in ("a", "b"):
-                            values, metadata = coefficients(
-                                args.selection_seed,
-                                chunk,
-                                repeat,
-                                labels[side],
-                                patients,
-                                [c.name for c in clinicians],
-                            )
-                            streams.append(
-                                {
-                                    "chunk_id": chunk,
-                                    "repeat_id": repeat,
-                                    "label": labels[side],
-                                    **metadata,
-                                }
-                            )
                             pair[side], statuses[side] = random_optimum(
                                 session,
                                 patients,
@@ -463,8 +458,13 @@ def run_comparison(args, session, output, clinicians, chunks, labels, prediction
                                 predictions[side].weights,
                                 args.clinician_capacity,
                                 optima[side],
-                                values,
+                                row["solver_seed"],
                             )
+                            streams.append({
+                                "chunk_id": chunk, "repeat_id": repeat,
+                                "label": labels[side], "solver_seed": row["solver_seed"],
+                                "algorithm": RANDOM_ALGORITHM, "status": statuses[side],
+                            })
                             if pair[side] is not None:
                                 selection_incumbents.extend(
                                     {
@@ -472,6 +472,7 @@ def run_comparison(args, session, output, clinicians, chunks, labels, prediction
                                         "side": side.upper(),
                                         "chunk_id": chunk,
                                         "repeat_id": repeat,
+                                        "solver_seed": row["solver_seed"],
                                         "selection_mode": "random",
                                         "patient_id": p,
                                         "clinician_id": pair[side][p],
@@ -666,16 +667,18 @@ def execute_args(args):
                 selection_mode=args.selection_mode,
                 selection_seed=args.selection_seed,
                 selection_repeats=args.selection_repeats,
-                selection_seed_active=args.selection_mode == "random",
+                selection_seed_active=False,
+                solver_seed_schedule="solver_seed + repeat_id - 1; same seed for both models and all chunks"
+                if args.selection_mode == "random" else None,
                 selection_repeats_active=args.selection_mode == "random",
                 tie_policy="solver_selected_closest_pair"
                 if args.selection_mode == "matched"
-                else "independent_random_linear_objective_on_certified_optimal_sets",
+                else "independent_original_objectives_with_varying_gurobi_seeds",
                 matching_objective="minimize patient disagreement"
                 if args.selection_mode == "matched"
                 else None,
                 random_algorithm=RANDOM_ALGORITHM if args.selection_mode == "random" else None,
-                random_sampling_warning="Not uniform sampling over all optimal allocations"
+                random_sampling_warning="Solver-seed sensitivity; repeats may return identical assignments; not uniform sampling over optimal allocations"
                 if args.selection_mode == "random"
                 else None,
                 reference_interpretation="Matching uses reference information when a reference side is supplied: retrospective, matching-conditioned regret, not a deployment policy; minimum disagreement does not imply minimum regret"

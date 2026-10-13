@@ -17,7 +17,6 @@ from patient_assignment.optimization import (
     solve_lexicographic,
 )
 from patient_assignment.selection import (
-    coefficients,
     match_optima,
     random_optimum,
     reference_regret,
@@ -106,15 +105,14 @@ def test_joint_matching_minimum_over_both_enumerated_sets(session, weights_a, we
         assert reference_regret(a, patients, clinicians, wb, 2, ob)["raw_regret"] == "0"
 
 
-def test_random_objective_preserves_optima_and_saved_regret(session):
+def test_solver_seed_repeats_preserve_optima_and_saved_regret(session):
     patients = list("1234")
     clinicians = parse_clinicians([["A", "0", "0"], ["B", "0", "0"]], 2)
     ai, ref = dict.fromkeys(patients, 1), dict(zip(patients, [1, 1, 3, 3]))
     oa, ob = [solve_lexicographic(session, patients, clinicians, w, 2) for w in (ai, ref)]
     _, allowed = enumerate_optimal(patients, clinicians, ai, 2)
     for repeat in range(1, 6):
-        values, _ = coefficients(42, "chunk_0001", repeat, "AI", patients, ["A", "B"])
-        assignment, status = random_optimum(session, patients, clinicians, ai, 2, oa, values)
+        assignment, status = random_optimum(session, patients, clinicians, ai, 2, oa, repeat - 1)
         assert status["optimal"] and assignment in allowed
         assert reference_regret(assignment, patients, clinicians, ref, 2, ob)["raw_regret"] in {
             "0",
@@ -206,7 +204,7 @@ def test_random_cli_no_matching_reference_independence_repeats_and_exports(
             for name in ("A", "B")
         }
         assert max(loads.values()) - min(loads.values()) - row["G_reference"] == row["raw_regret"]
-    # A/B swaps and partner labels do not affect a model's random coefficients or selection.
+    # A/B swaps and partner labels do not affect a model's solver seed or selection.
     swapped = args.copy()
     for option_a, option_b in (("--predictions-a", "--predictions-b"), ("--label-a", "--label-b")):
         ia, ib = swapped.index(option_a) + 1, swapped.index(option_b) + 1

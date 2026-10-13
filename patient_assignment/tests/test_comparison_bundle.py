@@ -24,7 +24,7 @@ def arguments(tmp_path):
             "--predictions-a", str(tmp_path / "a.csv"), "--label-a", "QS",
             "--predictions-b", str(tmp_path / "b.csv"), "--label-b", "MS",
             "--clinician", "A", "0", "0", "--clinician-capacity", "3",
-            "--threads", "20", "--time-limit", "300", "--selection-seed", "7",
+            "--threads", "20", "--time-limit", "300", "--solver-seed", "7",
             "--selection-repeats", "3", "--output", str(tmp_path / "reports")]
 
 
@@ -42,7 +42,7 @@ def test_bundle_cohort_outputs_and_child_options(tmp_path, monkeypatch, matched_
     assert execute(args) == matched_code
     assert [c.selection_mode for c in calls] == ["matched", "random"]
     assert [c.selection_repeats for c in calls] == [1, 3]
-    assert all(c.threads == 20 and c.time_limit == 300 and c.selection_seed == 7 for c in calls)
+    assert all(c.threads == 20 and c.time_limit == 300 and c.solver_seed == 7 for c in calls)
     assert [c.output.name for c in calls] == ["matched", "random"]
     matrix = pd.read_csv(tmp_path / "reports/extraction/exact_agreement_matrix.csv", index_col=0)
     assert matrix.loc["QS", "MS"] == 50  # Outside patient must not contribute.
