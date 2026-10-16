@@ -5,7 +5,10 @@ import sys
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    if argv and argv[0] in {"chunk", "solve", "compare-assignments", "compare-all"}:
+    if argv and argv[0] in {
+        "chunk", "solve", "compare-assignments", "compare-all",
+        "assignment-experiment", "assignment-plots", "make-profiles",
+    }:
         from patient_assignment.cli import main as command_main
     else:
         from clinical_target_extraction.src.cli import main as command_main

@@ -1,0 +1,19 @@
+schema_version: 1
+metadata:
+  description: Synthetic demonstration; total initial complexity 12 in every profile.
+profiles:
+  - id: balanced
+    clinicians:
+      - {id: A, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: B, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: C, initial_count: 2, initial_complexity: 4, capacity: 6}
+  - id: unbalanced
+    clinicians:
+      - {id: A, initial_count: 2, initial_complexity: 3, capacity: 6}
+      - {id: B, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: C, initial_count: 2, initial_complexity: 5, capacity: 6}
+  - id: highly_unbalanced
+    clinicians:
+      - {id: A, initial_count: 2, initial_complexity: 2, capacity: 6}
+      - {id: B, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: C, initial_count: 2, initial_complexity: 6, capacity: 6}

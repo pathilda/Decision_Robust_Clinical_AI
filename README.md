@@ -1,5 +1,9 @@
 # Pre-treatment Client Classification
 
+Assignment robustness experiments are available through `run.py assignment-experiment`,
+`make-profiles`, and `assignment-plots`. See [the experiment guide](patient_assignment/EXPERIMENTS.md)
+for a runnable synthetic example, existing-prediction configuration, and verification commands.
+
 This repository classifies each client once from de-identified pre-treatment information. There
 is no session sequence or rolling profile. Each Excel row represents one client; the pipeline
 combines that row's service-planning and assessment text into one source-labeled note and asks a

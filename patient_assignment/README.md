@@ -1,5 +1,9 @@
 # Patient assignment
 
+For selectable objectives, operational profiles, repeated optimal selections, regret envelopes,
+and robust tie-breaking, see [EXPERIMENTS.md](EXPERIMENTS.md). These are opt-in commands;
+the legacy interface documented below is preserved.
+
 This package extends the existing classification framework with four commands. The
 classification labels, prompts, model settings, and legacy entry points remain available.
 New code is separated into `cohort.py`, `inputs.py`, `chunking.py`, `optimization.py`,

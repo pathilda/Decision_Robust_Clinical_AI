@@ -47,6 +47,9 @@ def build_parser():
         description="Independent patient chunks and decision allocation"
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    from .experiment_cli import add_commands
+
+    add_commands(commands)
     chunk = commands.add_parser(
         "chunk", help="Create reusable membership without notes/inference/solver"
     )
@@ -634,6 +637,10 @@ def main(argv=None):
 def execute_args(args):
     output = None
     try:
+        if args.command in {"assignment-experiment", "assignment-plots", "make-profiles"}:
+            from .experiment_cli import execute
+
+            return execute(args)
         if args.command == "chunk":
             return create_chunks(args)
         if args.command == "compare-all":

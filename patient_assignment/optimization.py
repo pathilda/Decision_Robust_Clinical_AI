@@ -141,7 +141,7 @@ def add_allocation(model, gp, patients, clinicians, weights, capacity, prefix):
         loads[c.name] = float(c.initial_severity) + gp.quicksum(
             weights[p] * x[p, c.name] for p in patients
         )
-        model.addConstr(counts[c.name] <= capacity)
+        model.addConstr(counts[c.name] <= (capacity[c.name] if isinstance(capacity, dict) else capacity))
     return x, counts, loads
 
 
@@ -173,7 +173,8 @@ def evaluate(assignment, patients, clinicians, weights, capacity):
         selected = [p for p in patients if assignment[p] == c.name]
         assigned_severity = sum(weights[p] for p in selected)
         final_count = c.initial_count + len(selected)
-        if final_count > capacity:
+        clinician_capacity = capacity[c.name] if isinstance(capacity, dict) else capacity
+        if final_count > clinician_capacity:
             raise ValueError("Exported allocation violates capacity")
         rows.append(
             {
@@ -184,7 +185,7 @@ def evaluate(assignment, patients, clinicians, weights, capacity):
                 "assigned_severity": assigned_severity,
                 "final_count": final_count,
                 "final_severity": str(exact_decimal_sum(c.initial_severity, assigned_severity)),
-                "capacity": capacity,
+                "capacity": clinician_capacity,
             }
         )
     count_range = max(r["final_count"] for r in rows) - min(r["final_count"] for r in rows)

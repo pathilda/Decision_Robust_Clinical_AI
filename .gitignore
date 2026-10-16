@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.assignment_cache/
 /outputs/
 clinical_target_extraction/outputs/*
 !clinical_target_extraction/outputs/.gitkeep

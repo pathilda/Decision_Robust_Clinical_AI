@@ -1,0 +1,29 @@
+# Copy this file and replace every path. Paths in YAML are relative to this file.
+schema_version: 1
+chunks: ../data/chunks/chunks.csv
+profiles: assignment_demo/profiles.yaml
+scores:
+  scale: additive complexity (1-3)
+  category_weights:
+    Easy to treatment: 1
+    Moderate to treatment: 2
+    severe to treatment: 3
+  inputs:
+    - id: qwen_base
+      path: ../results/qwen/client_classifications.csv
+      id_column: Client AlayaCare Client ID
+      value_column: treatment_category
+      value_type: category
+    - id: medgemma_base
+      path: ../results/medgemma/client_classifications.xlsx
+      sheet: Sheet1
+      id_column: Client AlayaCare Client ID
+      value_column: treatment_category
+      value_type: category
+benchmark: {id: medgemma_base, kind: proxy}
+models: [qwen_base]
+objectives: [complexity-range, lexicographic]
+selection: [random, matched]
+samples: 30
+sample_seed: 42
+regret_bounds: exact

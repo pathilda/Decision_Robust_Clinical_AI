@@ -1,0 +1,8 @@
+schema_version: 1
+uncertainty:
+  synthetic_ai:
+    files:
+      - {id: heldout, path: heldout.csv, id_column: patient_id, value_column: category, value_type: category}
+  synthetic_anchor:
+    files:
+      - {id: heldout, path: heldout.csv, id_column: patient_id, value_column: category, value_type: category}
