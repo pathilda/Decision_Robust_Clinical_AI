@@ -1,0 +1,17 @@
+# SYNTHETIC example only; explicit initial state, on the 1/2/3 complexity scale.
+profiles:
+  balanced:
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: B, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: C, initial_count: 10, initial_complexity: 20, capacity: 25}
+  unbalanced:
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 15, capacity: 25}
+      - {id: B, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: C, initial_count: 10, initial_complexity: 25, capacity: 25}
+  highly_unbalanced:
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 10, capacity: 25}
+      - {id: B, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: C, initial_count: 10, initial_complexity: 30, capacity: 25}

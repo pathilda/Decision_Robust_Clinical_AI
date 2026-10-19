@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 optimization = ["gurobipy>=11"]
+proxy = ["gurobipy>=11", "plotly>=5.9"]
 dev = ["pytest>=8", "ruff>=0.6"]
 parquet = ["pyarrow>=14"]
 opendecider = ["opendecider[small]>=0.1.2"]

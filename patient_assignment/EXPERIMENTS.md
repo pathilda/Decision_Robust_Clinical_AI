@@ -218,6 +218,25 @@ not a guarantee. Directly compare W across candidates only on a shared evaluatio
 
 ## Output, resume, and plots
 
+For a compact comparison across **all chunks saved in a run**, use:
+
+```powershell
+python run.py assignment-plots --results outputs/slp20_first9_comparison --plots overview --selection random --format png pdf --output outputs/slp20_first9_comparison/overview
+```
+
+`overview` creates two figures per strategy: regret and assignment disagreement, followed by
+actual benchmark-evaluated load range and final count range. Each figure uses one row per
+objective, all model configurations as lines, and initial-load profiles on the x-axis. Assignment
+disagreement is against the saved paired benchmark assignment, not a direct count of patients
+moving between profiles. Values first average selections within each chunk and then average
+all saved chunks with equal weight (also when chunk sizes differ). No confidence intervals are
+implied. Profiles, objectives, and strategies are never pooled. Missing-cell coverage is disclosed
+in captions and the accompanying `overview_means.csv`; `overview_chunk_means.csv` saves the
+intermediate chunk means. `--max-instances-per-figure` does not paginate overview figures.
+Add `matched` to `--selection` for separate benchmark-informed diagnostic figures. This reads
+existing results only: no optimization or inference is run, and previously excluded chunks are
+not restored.
+
 Runs create `resolved_config.json`, `instances.csv`, `solutions.csv`, `assignments.csv`,
 `clinician_loads.csv`, `regret_bounds.csv`, `regret_witnesses.csv`, `summaries.csv`,
 `deployable_summaries.csv`, `benchmark_samples.json`, `uncertainty_manifest.json`,

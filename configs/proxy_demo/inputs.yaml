@@ -1,0 +1,20 @@
+schema_version: 1
+category_order: [easy, moderate, severe]
+category_weights: {easy: 1, moderate: 2, severe: 3}
+category_aliases:
+  Easy to treatment: easy
+  Moderate to treatment: moderate
+  severe to treatment: severe
+inputs:
+  - id: qwen_base
+    path: qwen.csv
+    id_column: patient_id
+    category_column: treatment_category
+  - id: qwen_fewshot
+    path: fewshot.csv
+    id_column: patient_id
+    category_column: treatment_category
+  - id: medgemma_base
+    path: benchmark.csv
+    id_column: patient_id
+    category_column: treatment_category

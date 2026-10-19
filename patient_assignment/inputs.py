@@ -42,7 +42,9 @@ def read_table(path, sheet=None, columns=None):
             keep_default_na=False,
             usecols=(lambda name: name in columns) if columns is not None else None,
         )
-    raise ValueError("Use a .csv, .xlsx, or .xls input")
+    if path.suffix.lower() == ".parquet":
+        return pd.read_parquet(path, columns=columns)
+    raise ValueError("Use a .csv, .xlsx, .xls, or .parquet input")
 
 
 def unique_ids(frame, column):

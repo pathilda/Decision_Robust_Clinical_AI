@@ -1,0 +1,21 @@
+# Replace paths and IDs with existing prediction exports. Paths are relative to this file.
+schema_version: 1
+category_order: [easy, moderate, severe]
+category_weights: {easy: 1, moderate: 2, severe: 3}
+category_aliases:
+  Easy to treatment: easy
+  Moderate to treatment: moderate
+  severe to treatment: severe
+inputs:
+  - id: qwen_base
+    path: ../predictions/qwen/client_classifications.xlsx
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category
+  - id: qwen_fewshot
+    path: ../predictions/qwen_fewshot/client_classifications.xlsx
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category
+  - id: medgemma_base
+    path: ../predictions/medgemma/client_classifications.xlsx
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category

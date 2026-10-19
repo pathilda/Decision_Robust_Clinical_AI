@@ -1,0 +1,49 @@
+schema_version: 1
+metadata:
+  description: Synthetic initial conditions for chunks of 20 new patients and weights 1, 1.5, 2.
+  score_min: 1
+  score_max: 2
+  intended_chunk_size: 20
+  total_initial_count: 30
+  total_initial_complexity: 45
+  total_remaining_capacity: 30
+  capacity_definition: Final patient count, including existing and newly assigned patients.
+profiles:
+  - id: balanced
+    metadata:
+      synthetic: true
+      initial_load_range: 0
+      illustrative_initial_categories:
+        A: {easy: 0, moderate: 10, severe: 0}
+        B: {easy: 0, moderate: 10, severe: 0}
+        C: {easy: 0, moderate: 10, severe: 0}
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 15, capacity: 20}
+      - {id: B, initial_count: 10, initial_complexity: 15, capacity: 20}
+      - {id: C, initial_count: 10, initial_complexity: 15, capacity: 20}
+
+  - id: unbalanced
+    metadata:
+      synthetic: true
+      initial_load_range: 5
+      illustrative_initial_categories:
+        A: {easy: 5, moderate: 5, severe: 0}
+        B: {easy: 0, moderate: 10, severe: 0}
+        C: {easy: 0, moderate: 5, severe: 5}
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 12.5, capacity: 20}
+      - {id: B, initial_count: 10, initial_complexity: 15, capacity: 20}
+      - {id: C, initial_count: 10, initial_complexity: 17.5, capacity: 20}
+
+  - id: highly_unbalanced
+    metadata:
+      synthetic: true
+      initial_load_range: 10
+      illustrative_initial_categories:
+        A: {easy: 10, moderate: 0, severe: 0}
+        B: {easy: 0, moderate: 10, severe: 0}
+        C: {easy: 0, moderate: 0, severe: 10}
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 10, capacity: 20}
+      - {id: B, initial_count: 10, initial_complexity: 15, capacity: 20}
+      - {id: C, initial_count: 10, initial_complexity: 20, capacity: 20}

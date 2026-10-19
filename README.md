@@ -1,5 +1,11 @@
 # Pre-treatment Client Classification
 
+For fixed-reference proxy benchmark analysis of saved LLM assessments, use
+`run.py proxy-analysis` and `run.py proxy-plots`. The
+[proxy analysis guide](patient_assignment/PROXY_ANALYSIS.md) documents categorical
+accuracy/QWK, randomized optimal assignments, three explicit starting profiles,
+four offline interactive Plotly figures, and a runnable synthetic example.
+
 Assignment robustness experiments are available through `run.py assignment-experiment`,
 `make-profiles`, and `assignment-plots`. See [the experiment guide](patient_assignment/EXPERIMENTS.md)
 for a runnable synthetic example, existing-prediction configuration, and verification commands.

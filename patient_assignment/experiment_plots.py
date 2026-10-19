@@ -8,6 +8,176 @@ import pandas as pd
 from .inputs import file_hash
 from .reporting import fresh_directory, write_json
 
+OVERVIEW_METRICS = ["regret", "disagreement", "benchmark_range", "count_range"]
+
+
+def aggregate_overview(data):
+    """Average draws within chunks first, then weight all chunks equally per cell."""
+    keys = ["model_id", "objective", "profile_id", "strategy", "oracle", "nominal_slack"]
+    valid = data.loc[data.certified.eq(True)].copy()
+    grouped = valid.groupby([*keys, "chunk_id"], dropna=False, sort=True)
+    chunks = grouped[OVERVIEW_METRICS].mean()
+    chunks["draws"] = grouped.size()
+    chunks["patient_count"] = grouped.patient_count.first()
+    chunks = chunks.reset_index()
+    grouped = chunks.groupby(keys, dropna=False, sort=True)
+    means = grouped[OVERVIEW_METRICS].mean()
+    means["chunks"] = grouped.size()
+    means["draws"] = grouped.draws.sum()
+    means["min_chunk_size"] = grouped.patient_count.min()
+    means["max_chunk_size"] = grouped.patient_count.max()
+    means["weighting"] = "equal chunk weight after averaging draws within each chunk"
+    return chunks, means.reset_index()
+
+
+def plot_overview(data, config, args, output, save):
+    """Two compact figures per strategy; objectives stay separate and all models share axes."""
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import PercentFormatter
+
+    chunks, means = aggregate_overview(data)
+    chunks.to_csv(output / "overview_chunk_means.csv", index=False)
+    means.to_csv(output / "overview_means.csv", index=False)
+    profiles = [
+        p for p in ("balanced", "unbalanced", "highly_unbalanced") if p in set(data.profile_id)
+    ]
+    profiles += sorted(set(data.profile_id) - set(profiles))
+    labels = []
+    for profile in profiles:
+        clinicians = config["profiles"][profile]["clinicians"]
+        loads = [c["initial_complexity"] for c in clinicians]
+        labels.append(profile.replace("_", " ") + f"\ninitial range {max(loads) - min(loads):g}")
+    models = sorted(data.model_id.unique())
+    palette = plt.get_cmap("tab10")
+    model_colors = {mid: palette(i % 10) for i, mid in enumerate(models)}
+    markers = ["o", "s", "^", "D", "v", "P", "X"]
+    benchmark = config["benchmark"]
+    regret_label = (
+        "Mean proxy-benchmark regret"
+        if benchmark["kind"] == "proxy"
+        else "Mean clinical-reference regret"
+    )
+    agreement_label = (
+        "Assignment disagreement with proxy benchmark"
+        if benchmark["kind"] == "proxy"
+        else "Assignment disagreement with clinical reference"
+    )
+    for strategy, selected in means.groupby("strategy", sort=True):
+        objectives = [
+            mode
+            for mode in ("complexity-range", "lexicographic")
+            if mode in set(selected.objective)
+        ]
+        available_chunks = data.loc[data.strategy == strategy, "chunk_id"].nunique()
+        minimum_chunks = int(selected.chunks.min())
+        coverage = f"All {available_chunks} saved chunks; equal weight per chunk"
+        if minimum_chunks != available_chunks:
+            coverage += (
+                f"; incomplete cells use {minimum_chunks}–{available_chunks} chunks (see CSV)"
+            )
+        sizes = sorted(data.loc[data.strategy == strategy, "patient_count"].unique())
+        coverage += "; chunk sizes: " + ", ".join(str(int(n)) for n in sizes)
+        strategy_label = (
+            "matched — benchmark-informed diagnostic" if strategy == "matched" else strategy
+        )
+        if strategy == "robust" and (selected.nominal_slack > 0).any():
+            strategy_label = "near-optimal robust (positive nominal slack)"
+        for family, metrics, ylabels in (
+            (
+                "regret_assignments",
+                ["regret", "disagreement"],
+                [regret_label + " [load units]", agreement_label],
+            ),
+            (
+                "actual_loads",
+                ["benchmark_range", "count_range"],
+                [
+                    "Mean benchmark-evaluated load range [load units]",
+                    "Mean final count range [patients]",
+                ],
+            ),
+        ):
+            fig, axes = plt.subplots(
+                len(objectives),
+                2,
+                figsize=(11.5, 3.4 * len(objectives) + 1.2),
+                squeeze=False,
+                sharex=True,
+                sharey="col",
+            )
+            handles, legends = [], []
+            for row, objective in enumerate(objectives):
+                for col, (metric, ylabel) in enumerate(zip(metrics, ylabels)):
+                    ax = axes[row, col]
+                    for index, mid in enumerate(models):
+                        part = selected.loc[
+                            (selected.objective == objective) & (selected.model_id == mid)
+                        ]
+                        if part.empty:
+                            continue
+                        # Saved experiments have one oracle/slack setting per model/strategy.
+                        if part.profile_id.duplicated().any():
+                            raise ValueError(
+                                "Overview cannot mix different oracle/slack settings in one cell"
+                            )
+                        values = part.set_index("profile_id").reindex(profiles)[metric]
+                        label = mid + (" (benchmark)" if mid == benchmark["id"] else "")
+                        if part.oracle.any():
+                            label += " [ORACLE]"
+                        (line,) = ax.plot(
+                            range(len(profiles)),
+                            values,
+                            marker=markers[index % len(markers)],
+                            color=model_colors[mid],
+                            linewidth=1.8,
+                            markersize=6,
+                            label=label,
+                        )
+                        if row == 0 and col == 0:
+                            handles.append(line)
+                            legends.append(label)
+                    ax.set_title(objective)
+                    ax.set_ylabel(ylabel)
+                    ax.set_xticks(range(len(profiles)), labels)
+                    ax.tick_params(axis="x", labelbottom=True)
+                    ax.grid(axis="y", alpha=0.2)
+                    ax.spines[["top", "right"]].set_visible(False)
+                    ax.set_ylim(bottom=0)
+                    if metric == "disagreement":
+                        ax.set_ylim(0, 1)
+                        ax.yaxis.set_major_formatter(PercentFormatter(1))
+                    threshold = (
+                        args.regret_threshold
+                        if metric == "regret"
+                        else args.disagreement_threshold
+                        if metric == "disagreement"
+                        else None
+                    )
+                    if threshold is not None:
+                        ax.axhline(threshold, color="gray", linestyle=":")
+            fig.suptitle(
+                f"{benchmark['kind'].upper()} benchmark: {benchmark['id']} | {strategy_label}\n"
+                f"{coverage}\nLoad units: {config['scoring']['scale']}",
+                fontsize=11,
+            )
+            fig.legend(
+                handles,
+                legends,
+                loc="lower center",
+                ncol=min(3, len(legends)),
+                frameon=False,
+                bbox_to_anchor=(0.5, 0.015),
+            )
+            if family == "regret_assignments":
+                fig.text(
+                    0.5,
+                    0.002,
+                    "Assignment disagreement depends on the chosen optimal assignments; lines connect profile means.",
+                    ha="center",
+                    fontsize=8,
+                )
+            save(fig, f"overview_{family}_{strategy}", rect=(0, 0.12, 1, 0.98))
+
 
 def plot_results(args):
     import matplotlib
@@ -53,8 +223,8 @@ def plot_results(args):
         title_base += "\nRobust selections use positive nominal slack: near-optimal robust"
     files, omitted = [], []
 
-    def save(fig, name):
-        fig.tight_layout()
+    def save(fig, name, rect=None):
+        fig.tight_layout(rect=rect)
         for fmt in args.format:
             path = output / f"{name}.{fmt}"
             fig.savefig(path, dpi=160, bbox_inches="tight")
@@ -79,7 +249,9 @@ def plot_results(args):
         lambda s: "matched diagnostic" if s == "matched" else "random and robust"
     )
     for family in args.plots:
-        if family in {"regret-envelope", "assignment-regret"}:
+        if family == "overview":
+            plot_overview(data, config, args, output, save)
+        elif family in {"regret-envelope", "assignment-regret"}:
             for group_index, ((mid, mode, diagnostic), part) in enumerate(
                 data.groupby(["model_id", "objective", "diagnostic"], sort=True)
             ):
@@ -244,7 +416,7 @@ def plot_results(args):
             "omitted": omitted,
             "dot_subsampling": False,
             "plot_seed": args.plot_seed,
-            "statistics": "Draws aggregated within instances first; no confidence intervals; unequal chunk sizes stratified in profile plots",
+            "statistics": "Draws aggregated within instances first; no confidence intervals; unequal chunk sizes stratified in profile plots; overview combines all chunks with explicitly equal chunk weights",
         },
     )
     print(f"Saved {len(files)} plots to {output}")

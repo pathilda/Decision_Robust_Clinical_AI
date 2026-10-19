@@ -5,7 +5,9 @@ import sys
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    if argv and argv[0] in {
+    if argv and argv[0] in {"proxy-analysis", "proxy-plots"}:
+        from patient_assignment.proxy_cli import main as command_main
+    elif argv and argv[0] in {
         "chunk", "solve", "compare-assignments", "compare-all",
         "assignment-experiment", "assignment-plots", "make-profiles",
     }:

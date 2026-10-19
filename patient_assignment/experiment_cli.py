@@ -109,8 +109,15 @@ def add_commands(commands):
     plots.add_argument(
         "--plots",
         nargs="+",
-        choices=["regret-envelope", "profile-effect", "assignment-regret", "robustness"],
+        choices=[
+            "overview",
+            "regret-envelope",
+            "profile-effect",
+            "assignment-regret",
+            "robustness",
+        ],
         default=["regret-envelope", "profile-effect", "assignment-regret", "robustness"],
+        help="overview combines every saved chunk into compact model/profile comparisons",
     )
     plots.add_argument("--format", nargs="+", choices=["png", "pdf"], default=["png"])
     for name in ("models", "profile-ids", "objectives", "selection"):
