@@ -1,0 +1,21 @@
+TASK: ASSESS PRE-TREATMENT INTERVENTION COMPLEXITY WITH CLASS PROBABILITIES
+
+Read the single combined note for this client and assess the probability of each treatment_category:
+
+- "Easy to treatment": the documented needs appear relatively focused, lower intensity, and straightforward to address, with few evident complicating factors.
+- "Moderate to treatment": the documented needs or barriers show meaningful complexity and are likely to require a moderate level of treatment intensity, coordination, or support.
+- "severe to treatment": the documented needs, risks, functional impacts, or barriers appear highly complex or intensive and are likely to require substantial treatment effort, coordination, or support.
+
+Use both source sections when present. If the sources conflict, weigh the full clinical picture. Do not use information outside the note. Return the CLIENT_ID exactly as supplied.
+
+Report self-assessed probabilities for all three categories that sum to 1. confidence is the largest category probability, not a separate certainty rating. The final treatment_category must be the category with that probability; break exact ties in the category order above.
+
+Before announcing the final category, provide brief_reasoning of one to three sentences that identifies only the key documented factors supporting the assessment and any documented ambiguity relevant to the reported uncertainty. Keep it concise and do not provide hidden or detailed chain-of-thought.
+
+CLIENT_ID: {{ client_id }}
+
+<COMBINED_PRETREATMENT_NOTE>
+{{ combined_note }}
+</COMBINED_PRETREATMENT_NOTE>
+
+Return only JSON matching ClassificationWithBriefReasoningProbabilitiesOutput. Use exactly this top-level field order: confidence, probabilities, client_id, brief_reasoning, treatment_category. In probabilities use exactly these keys: "Easy to treatment", "Moderate to treatment", "severe to treatment". Put confidence first and the final category last. Use numeric probabilities in [0,1], with sum and confidence consistency tolerance 0.000001; do not output percentage strings. Do not copy illustrative values from another case.

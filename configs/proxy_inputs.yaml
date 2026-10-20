@@ -1,0 +1,36 @@
+schema_version: 1
+
+category_order: [easy, moderate, severe]
+category_weights: {easy: 1, moderate: 2, severe: 3}
+category_aliases:
+  Easy to treatment: easy
+  Moderate to treatment: moderate
+  severe to treatment: severe
+
+# Select the proxy benchmark through --benchmark qwen_CoT.
+# Candidates: --models qwen_base medgemma_base medgemma_CoT OpenDecider
+inputs:
+  - id: qwen_base
+    path: /scratch/pathilda/classification_results/qwen/client_classifications.csv
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category
+
+  - id: medgemma_base
+    path: /scratch/pathilda/classification_results/medgemma/client_classifications.csv
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category
+
+  - id: qwen_CoT
+    path: /scratch/pathilda/classification_results_CoT/qwen_brief_reasoning/client_classifications.csv
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category
+
+  - id: medgemma_CoT
+    path: /scratch/pathilda/classification_results_CoT/medgemma_brief_reasoning/client_classifications.csv
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category
+
+  - id: OpenDecider
+    path: /scratch/pathilda/classification_results_OD/opendecider/client_classifications.csv
+    id_column: Client AlayaCare Client ID
+    category_column: treatment_category

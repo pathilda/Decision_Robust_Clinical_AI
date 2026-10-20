@@ -1,0 +1,24 @@
+# Synthetic experimental starting profiles from the proxy-analysis specification.
+# These are explicit experimental conditions, not measured clinician workloads.
+# Compatible with category weights: easy=1, moderate=2, severe=3.
+# Every profile has 30 initial patients and total initial complexity 60.
+# Capacity is the FINAL patient-count limit per clinician.
+# Each chunk starts independently from the chosen profile; maximum chunk size is 45.
+profiles:
+  balanced:
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: B, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: C, initial_count: 10, initial_complexity: 20, capacity: 25}
+
+  unbalanced:
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 15, capacity: 25}
+      - {id: B, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: C, initial_count: 10, initial_complexity: 25, capacity: 25}
+
+  highly_unbalanced:
+    clinicians:
+      - {id: A, initial_count: 10, initial_complexity: 10, capacity: 25}
+      - {id: B, initial_count: 10, initial_complexity: 20, capacity: 25}
+      - {id: C, initial_count: 10, initial_complexity: 30, capacity: 25}

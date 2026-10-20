@@ -171,6 +171,79 @@ detailed chain-of-thought. Its results are stored separately under
 `<output>/<model>_brief_reasoning/`. Omit the option, or use `--prompt-style standard`, to run the
 unchanged original prompt under `<output>/<model>/`.
 
+### Optional class probabilities, with confidence first
+
+Use `--prompt-style probabilities` for all three category probabilities and the final
+category, or `--prompt-style brief-reasoning-probabilities` to also include the existing
+kind of short evidence summary. Both modes use the same category rubric as the original
+prompts. They work with the Qwen, MedGemma and GPT-OSS presets through the existing vLLM
+pipeline. Original `standard` and `brief-reasoning` prompts and output directories are
+unchanged.
+
+The generated JSON starts with `confidence` and ends with `treatment_category`:
+
+```json
+{
+  "confidence": 0.65,
+  "probabilities": {
+    "Easy to treatment": 0.15,
+    "Moderate to treatment": 0.65,
+    "severe to treatment": 0.20
+  },
+  "client_id": "C001",
+  "treatment_category": "Moderate to treatment"
+}
+```
+
+The reasoning variant inserts `brief_reasoning` between `client_id` and
+`treatment_category`. The pipeline validates the generated field order, exact category
+keys, finite numeric probabilities in [0,1], sum of 1 (absolute tolerance 1e-6),
+and agreement between confidence and the final category's probability (tolerance 1e-6).
+The final category must have the largest probability; exact ties use Easy, Moderate,
+severe order. Invalid output receives one repair request. Values are never silently
+normalized, rounded, or replaced by Python. The client ID must match the requested ID.
+
+For example, in a notebook, after setting `EXCEL` to your existing input workbook:
+
+```python
+!python run.py \
+  --pipeline classify \
+  --model qwen \
+  --input "$EXCEL" \
+  --model-root /scratch/pathilda/Models \
+  --output /scratch/pathilda/classification_results_probabilities \
+  --prompt-style probabilities \
+  --max-tokens 512 \
+  --batch-size 1 \
+  --deidentified-confirmed
+```
+
+Replace `qwen` with `medgemma` for MedGemma. For the reasoning variant, use
+`--prompt-style brief-reasoning-probabilities` and allow `--max-tokens 768`.
+Existing `--sheet`, `--discipline`, and client-selection options work unchanged.
+
+Outputs are separated under `<output>/<model>_probabilities/` or
+`<output>/<model>_brief_reasoning_probabilities/`. CSV, Excel, and optional Parquet
+contain `confidence`, `probability_easy`, `probability_moderate`, and
+`probability_severe`, using the same numeric column names as OpenDecider. They retain
+the patient ID, category, prompt style, and reasoning where requested. Probability
+exports also contain `probability_source=llm_self_reported`,
+`probabilities_calibrated=false`, and `probability_contract_version`.
+
+Raw responses are retained verbatim in `raw_responses.jsonl`; validated JSONL keeps
+the full ordered `model_output`, probability mapping, confidence, and provenance.
+`run_config.json` records the probability contract, validation tolerances, model and
+prompt hashes. Matching validated checkpoints are reused without loading the model;
+new probability-mode exports only include successful current-request results, so a
+failed changed request cannot export an older classification. Historical JSONL records
+remain available for audit.
+
+These are **LLM self-reported class probabilities**, not token probabilities or
+OpenDecider's native category distribution. No calibration is applied. Existing proxy
+analysis can consume the saved `treatment_category` column; it does not yet use these
+probabilities for optimization or uncertainty analysis. Running these new prompt
+styles performs new inference; existing category-only results cannot supply them.
+
 ## Output
 
 Each model writes to `<output>/<model>/`:

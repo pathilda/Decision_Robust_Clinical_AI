@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 
 from .data import CLIENT_ID_COLUMN
-
+from .schemas import PROBABILITY_COLUMNS, PROBABILITY_STYLES, schema_for_prompt_style
 
 RESULT_COLUMNS = [
     "model",
@@ -71,15 +71,56 @@ class ClassificationStore:
                     records[client_id] = record
             return records
 
-    def materialize(self, selected_clients: list[str]) -> None:
+    def materialize(
+        self,
+        selected_clients: list[str],
+        *,
+        prompt_style: str = "standard",
+        expected_fingerprints: dict[str, str] | None = None,
+    ) -> None:
         """Write one result row per selected client with a valid checkpoint."""
 
         latest = self.latest_validated()
+        with_probabilities = prompt_style in PROBABILITY_STYLES
+        columns = list(RESULT_COLUMNS)
+        if with_probabilities:
+            position = columns.index("treatment_category")
+            columns[position:position] = [
+                "confidence",
+                *PROBABILITY_COLUMNS.values(),
+                "probability_source",
+                "probabilities_calibrated",
+                "probability_contract_version",
+            ]
         rows = []
         for client_id in selected_clients:
             record = latest.get(client_id)
             if record is None:
                 continue
+            if expected_fingerprints is not None and (
+                client_id not in expected_fingerprints
+                or record.get("request_fingerprint") != expected_fingerprints[client_id]
+            ):
+                continue
+            probability_fields = {}
+            if with_probabilities:
+                # Revalidate saved distributions; derive table fields from the canonical output.
+                output = schema_for_prompt_style(prompt_style).model_validate(
+                    record["model_output"]
+                )
+                probabilities = output.probabilities.model_dump(by_alias=True)
+                probability_fields = {
+                    "confidence": output.confidence,
+                    **{
+                        column: probabilities[category]
+                        for category, column in PROBABILITY_COLUMNS.items()
+                    },
+                    "probability_source": record["probability_source"],
+                    "probabilities_calibrated": record["probabilities_calibrated"],
+                    "probability_contract_version": record["probability_contract_version"],
+                    "treatment_category": output.treatment_category,
+                    "brief_reasoning": getattr(output, "brief_reasoning", None),
+                }
             rows.append(
                 {
                     "model": record["model"],
@@ -91,20 +132,27 @@ class ClassificationStore:
                     "input_sha256": record["input_sha256"],
                     "input_tokens": record["input_tokens"],
                     "completed_at": record["completed_at"],
+                    **probability_fields,
                 }
             )
-        frame = pd.DataFrame(rows, columns=RESULT_COLUMNS)
+        frame = pd.DataFrame(rows, columns=columns)
         with self._lock:
             self._write_csv_atomic(self.root / "client_classifications.csv", frame)
             self._write_excel_atomic(self.root / "client_classifications.xlsx", frame)
-            self._write_parquet_if_available(
-                self.root / "client_classifications.parquet", frame
-            )
+            self._write_parquet_if_available(self.root / "client_classifications.parquet", frame)
 
     @staticmethod
     def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
         with path.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+            handle.write(
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    # Preserve confidence-first/category-last inside probability model_output.
+                    sort_keys=payload.get("probability_source") != "llm_self_reported",
+                )
+                + "\n"
+            )
             handle.flush()
             os.fsync(handle.fileno())
 

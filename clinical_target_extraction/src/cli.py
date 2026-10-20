@@ -28,9 +28,7 @@ DEFAULT_MODEL_ROOT = Path(os.environ.get("MODEL_ROOT", "/scratch/pathilda/Models
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=(
-            "Classify one combined SP/assessment pre-treatment note per client"
-        ),
+        description=("Classify one combined SP/assessment pre-treatment note per client"),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -62,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--prompt-style",
         choices=list(PROMPT_STYLES),
         default="standard",
-        help="Use the original prompt or request a concise evidence-based rationale",
+        help="Original assessment, brief reasoning, class probabilities, or reasoning plus probabilities",
     )
     parser.add_argument("--client-id", action="append", help="Repeat to select clients")
     parser.add_argument(
@@ -169,8 +167,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\n>>> Finished")
         print(json.dumps(summaries, indent=2))
         has_failures = any(
-            result["failed"] or result["context_overflow"]
-            for result in summaries.values()
+            result["failed"] or result["context_overflow"] for result in summaries.values()
         )
         return 1 if has_failures else 0
     except (FileNotFoundError, ValueError) as exc:

@@ -10,7 +10,6 @@ from typing import Any
 
 from .data import ClientNote
 
-
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
 PROMPT_STYLES = {
     "standard": {
@@ -20,6 +19,14 @@ PROMPT_STYLES = {
     "brief-reasoning": {
         "system": "classification_brief_reasoning_system.txt",
         "classification": "classification_brief_reasoning.txt",
+    },
+    "probabilities": {
+        "system": "classification_probabilities_system.txt",
+        "classification": "classification_probabilities.txt",
+    },
+    "brief-reasoning-probabilities": {
+        "system": "classification_probabilities_system.txt",
+        "classification": "classification_brief_reasoning_probabilities.txt",
     },
 }
 PLACEHOLDER = re.compile(r"{{\s*([a-zA-Z0-9_]+)\s*}}")

@@ -16,7 +16,13 @@ from .classification_store import ClassificationStore
 from .data import ClientNote
 from .model_client import ContextOverflowError, ModelConfig, VLLMClient, repair_prompt
 from .prompts import build_classification_prompt, load_prompts, prompt_bundle_hash
-from .schemas import ClassificationResultOutput, schema_for_prompt_style
+from .schemas import (
+    PROBABILITY_CONTRACT,
+    PROBABILITY_STYLES,
+    ClassificationResultOutput,
+    parse_classification_output,
+    schema_for_prompt_style,
+)
 
 ARCHITECTURE_VERSION = "pretreatment_classification_v1"
 
@@ -64,10 +70,11 @@ def process_clients(
     prompts = load_prompts(prompt_style)
     prompts_hash = prompt_bundle_hash(prompts)
     output_schema = schema_for_prompt_style(prompt_style)
+    with_probabilities = prompt_style in PROBABILITY_STYLES
     output_label = (
         model_config.model_label
         if prompt_style == "standard"
-        else f"{model_config.model_label}_brief_reasoning"
+        else f"{model_config.model_label}_{prompt_style.replace('-', '_')}"
     )
     output_dir = output_root / output_label
     store = ClassificationStore(output_dir)
@@ -87,11 +94,13 @@ def process_clients(
             "batch_size": batch_size,
             "input_unit": "one_combined_note_per_client",
             "combined_fields": ["SP text", "assessment text"],
+            **({"probability_contract": PROBABILITY_CONTRACT} if with_probabilities else {}),
         }
     )
 
     counters = {"completed": 0, "reused": 0, "failed": 0, "context_overflow": 0}
     pending: list[ClassificationWork] = []
+    successful_fingerprints: dict[str, str] = {}
     for client_id in selected_clients:
         client = by_id[client_id]
         task_prompt = build_classification_prompt(prompts["classification"], client)
@@ -103,8 +112,24 @@ def process_clients(
         )
         existing = latest.get(client_id)
         if existing and existing.get("request_fingerprint") == fingerprint:
-            counters["reused"] += 1
-            continue
+            valid_checkpoint = True
+            if with_probabilities:
+                valid_checkpoint = (
+                    existing.get("probability_source") == PROBABILITY_CONTRACT["probability_source"]
+                    and existing.get("probabilities_calibrated") is False
+                    and existing.get("probability_contract_version")
+                    == PROBABILITY_CONTRACT["version"]
+                )
+                try:
+                    _validate_client_id(
+                        output_schema.model_validate(existing.get("model_output")), client_id
+                    )
+                except (ValidationError, ValueError):
+                    valid_checkpoint = False
+            if valid_checkpoint:
+                successful_fingerprints[client_id] = fingerprint
+                counters["reused"] += 1
+                continue
         pending.append(ClassificationWork(client, task_prompt, fingerprint))
 
     print(
@@ -145,6 +170,7 @@ def process_clients(
                             "prompt_style": prompt_style,
                             "client_id": client_id,
                             "source_row": work.client.source_row,
+                            "request_fingerprint": work.fingerprint,
                             "created_at": utc_now(),
                             "reason": (
                                 "context_overflow" if is_overflow else "classification_failed"
@@ -175,21 +201,40 @@ def process_clients(
                         "request_fingerprint": work.fingerprint,
                         "input_sha256": _sha256_text(work.client.note_text),
                         "sp_text_sha256": _sha256_text(work.client.sp_text),
-                        "assessment_text_sha256": _sha256_text(
-                            work.client.assessment_text
-                        ),
+                        "assessment_text_sha256": _sha256_text(work.client.assessment_text),
                         "prompt_bundle_sha256": prompts_hash,
                         "input_tokens": result.input_tokens,
-                        "model_output": result.output.model_dump(),
+                        "model_output": result.output.model_dump(by_alias=True),
+                        **(
+                            {
+                                "confidence": result.output.confidence,
+                                "probabilities": result.output.probabilities.model_dump(
+                                    by_alias=True
+                                ),
+                                "probability_source": PROBABILITY_CONTRACT["probability_source"],
+                                "probabilities_calibrated": False,
+                                "probability_contract_version": PROBABILITY_CONTRACT["version"],
+                            }
+                            if with_probabilities
+                            else {}
+                        ),
                     }
                 )
+                successful_fingerprints[client_id] = work.fingerprint
                 counters["completed"] += 1
                 progress.set_postfix_str(client_id, refresh=False)
                 progress.update(1)
     finally:
         progress.close()
         try:
-            store.materialize(selected_clients)
+            if with_probabilities:
+                store.materialize(
+                    selected_clients,
+                    prompt_style=prompt_style,
+                    expected_fingerprints=successful_fingerprints,
+                )
+            else:
+                store.materialize(selected_clients)
         finally:
             if model_client is not None:
                 model_client.close()
@@ -205,13 +250,12 @@ def _classify_batch(
     output_schema: type[BaseModel],
 ) -> list[ClassificationResult]:
     requests = [
-        (system_prompt, work.task_prompt, output_schema, output_schema.__name__)
-        for work in works
+        (system_prompt, work.task_prompt, output_schema, output_schema.__name__) for work in works
     ]
     results = [ClassificationResult() for _ in works]
     try:
         completions = model_client.complete_batch(requests)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- isolate backend failures as per-client results
         return [ClassificationResult(error=exc) for _ in works]
 
     repair_indices: list[int] = []
@@ -222,13 +266,11 @@ def _classify_batch(
             continue
         raw = completion.text or ""
         try:
-            output = output_schema.model_validate_json(raw)
+            output = parse_classification_output(raw, output_schema)
             _validate_client_id(output, work.client.client_id)
         except (ValidationError, ValueError) as exc:
             messages = _validation_messages(exc)
-            _record_raw(
-                store, work, "initial", completion.input_tokens, False, messages, raw
-            )
+            _record_raw(store, work, "initial", completion.input_tokens, False, messages, raw)
             repair_indices.append(index)
             repair_requests.append(
                 (
@@ -251,7 +293,7 @@ def _classify_batch(
         return results
     try:
         repairs = model_client.complete_batch(repair_requests)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- record failed repair batches without losing exports
         for index in repair_indices:
             results[index].error = exc
         return results
@@ -263,16 +305,13 @@ def _classify_batch(
             continue
         raw = completion.text or ""
         try:
-            output = output_schema.model_validate_json(raw)
+            output = parse_classification_output(raw, output_schema)
             _validate_client_id(output, work.client.client_id)
         except (ValidationError, ValueError) as exc:
             messages = _validation_messages(exc)
-            _record_raw(
-                store, work, "repair", completion.input_tokens, False, messages, raw
-            )
+            _record_raw(store, work, "repair", completion.input_tokens, False, messages, raw)
             results[index].error = RuntimeError(
-                "Model output remained invalid after one repair attempt: "
-                + "; ".join(messages)
+                "Model output remained invalid after one repair attempt: " + "; ".join(messages)
             )
             continue
         _record_raw(store, work, "repair", completion.input_tokens, True, [], raw)
@@ -283,16 +322,13 @@ def _classify_batch(
 def _validate_client_id(output: BaseModel, expected: str) -> None:
     client_id = getattr(output, "client_id", None)
     if client_id != expected:
-        raise ValueError(
-            f"client_id must equal the requested ID {expected!r}; got {client_id!r}"
-        )
+        raise ValueError(f"client_id must equal the requested ID {expected!r}; got {client_id!r}")
 
 
 def _validation_messages(exc: Exception) -> list[str]:
     if isinstance(exc, ValidationError):
         return [
-            f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
-            for item in exc.errors()
+            f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}" for item in exc.errors()
         ]
     return [str(exc)]
 
@@ -311,6 +347,7 @@ def _record_raw(
             "architecture": ARCHITECTURE_VERSION,
             "client_id": work.client.client_id,
             "source_row": work.client.source_row,
+            "request_fingerprint": work.fingerprint,
             "attempt": attempt,
             "created_at": utc_now(),
             "input_tokens": input_tokens,
@@ -337,6 +374,9 @@ def _request_fingerprint(
         "prompt_style": prompt_style,
         "model_config": model_config.model_dump(),
     }
+    if prompt_style in PROBABILITY_STYLES:
+        payload["probability_contract"] = PROBABILITY_CONTRACT
+        payload["output_schema"] = schema_for_prompt_style(prompt_style).model_json_schema()
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 

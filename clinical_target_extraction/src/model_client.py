@@ -132,9 +132,7 @@ class VLLMClient:
                     top_p=self.config.top_p,
                     seed=self.config.seed,
                     max_tokens=self.config.max_tokens,
-                    structured_outputs=StructuredOutputsParams(
-                        json=schema.model_json_schema()
-                    ),
+                    structured_outputs=StructuredOutputsParams(json=schema.model_json_schema()),
                 )
             )
 
@@ -209,11 +207,21 @@ def repair_prompt(
 ) -> str:
     """Build the sole allowed repair request without modifying any output in Python."""
 
+    from .schemas import ProbabilityOutputBase
+
+    instructions = (
+        "Correct structural, numeric and consistency errors using the original note. "
+        "Reassess the distribution if necessary: probabilities must sum to 1, confidence "
+        "must equal the largest probability, and the final category must be its argmax "
+        "with the declared tie order. Return confidence first and treatment_category last, "
+        "in exactly the schema's field order. Do not retain an inconsistent category. "
+        if issubclass(schema, ProbabilityOutputBase)
+        else "Correct structural and schema errors while preserving the model's substantive classification. "
+    )
     return (
         "TASK: REPAIR INVALID STRUCTURED OUTPUT\n\n"
-        "Return a corrected response for the original task. Correct structural and schema "
-        "errors while preserving the model's substantive classification. Return only compact "
-        "JSON matching the schema.\n\n"
+        "Return a corrected response for the original task. "
+        f"{instructions}Return only compact JSON matching the schema.\n\n"
         f"<VALIDATION_ERRORS>\n{json.dumps(validation_errors, indent=2)}\n"
         "</VALIDATION_ERRORS>\n\n"
         f"<INVALID_RESPONSE>\n{invalid_response}\n</INVALID_RESPONSE>\n\n"
