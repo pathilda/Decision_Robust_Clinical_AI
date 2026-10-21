@@ -11,6 +11,17 @@ from patient_assignment.proxy_plots import standalone
 from patient_assignment.proxy_policy_plots import load_results, ordinary_figures
 
 
+def comparable_settings(resolved):
+    """Exclude cohort identity while retaining full probability-source integrity."""
+    result = {k: v for k, v in resolved.items() if k not in {"chunks", "run_fingerprint"}}
+    if "probability_sources" in result:
+        result["probability_sources"] = {
+            model: {k: v for k, v in source.items() if k != "normalized_sha256"}
+            for model, source in result["probability_sources"].items()
+        }
+    return result
+
+
 def combine(sources, output, mode="Box", facet_cols=3):
     if len(sources) < 2:
         raise ValueError("Provide at least two original completed result folders")
@@ -19,14 +30,15 @@ def combine(sources, output, mode="Box", facet_cols=3):
     loaded = [load_results(Path(source)) for source in sources]
     reference = loaded[0][0]
     # Conservative compatibility: require the same inputs and experimental settings.
-    ignored = {"chunks", "run_fingerprint"}
+    expected_settings = comparable_settings(reference)
     chunks = {}
     frames = []
     for source, (resolved, frame) in zip(sources, loaded):
+        settings = comparable_settings(resolved)
         differences = [
             k
-            for k in reference.keys() | resolved.keys()
-            if k not in ignored and reference.get(k) != resolved.get(k)
+            for k in expected_settings.keys() | settings.keys()
+            if expected_settings.get(k) != settings.get(k)
         ]
         if differences:
             raise ValueError(
@@ -84,6 +96,7 @@ def combine(sources, output, mode="Box", facet_cols=3):
         links.append(f'<li><a href="{name}.csv">{name.replace("_", " ")}</a></li>')
     provenance = {
         "source_runs": [str(p) for p in sources],
+        "source_probability_metadata": [r.get("probability_sources", {}) for r, _ in loaded],
         "source_fingerprints": [r["run_fingerprint"] for r, _ in loaded],
         "chunk_ids": list(chunks),
         "optimization_executed": False,
