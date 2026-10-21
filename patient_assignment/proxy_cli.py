@@ -10,6 +10,31 @@ def parser():
     commands = p.add_subparsers(dest="command", required=True)
     run = commands.add_parser("proxy-analysis", help="Analyze existing categorical predictions")
     plots = commands.add_parser("proxy-plots", help="Render saved results; no solver or inference")
+    chunks = commands.add_parser(
+        "proxy-chunks", help="Intersect successful predictions, then create new chunks"
+    )
+    chunks.add_argument("--config", type=Path, required=True)
+    chunks.add_argument("--models", nargs="+", required=True)
+    chunks.add_argument("--benchmark", required=True)
+    chunks.add_argument("--chunk-size", type=int, required=True)
+    chunks.add_argument("--seed", type=int, default=42)
+    chunks.add_argument(
+        "--require-probabilities",
+        action="store_true",
+        help="Require valid full probability vectors for candidates; benchmark needs only its label",
+    )
+    chunks.add_argument("--uncertainty-config", type=Path)
+    chunks.add_argument(
+        "--eligible-chunks",
+        type=Path,
+        help="Optional patient-ID whitelist from previous chunks; old grouping is discarded",
+    )
+    chunks.add_argument(
+        "--drop-remainder",
+        action="store_true",
+        help="Exclude and report the last incomplete group; default keeps it",
+    )
+    chunks.add_argument("--output", type=Path, required=True)
     for sub in (run, plots):
         sub.add_argument("--models", nargs="+", required=sub is run)
         sub.add_argument("--starting-parameters", nargs="+")
@@ -73,6 +98,10 @@ def parser():
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
+        if args.command == "proxy-chunks":
+            from .proxy_chunking import run as create_common_chunks
+
+            return create_common_chunks(args)
         if args.facet_cols < 1:
             raise ValueError("facet-cols must be >= 1")
         if args.command == "proxy-plots":

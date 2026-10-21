@@ -179,25 +179,11 @@ def load_probabilities(args, prepared, config):
             )
         data, corrections, disagreements = {}, 0, 0
         for pid in patients:
-            values = [number(rows[pid][columns[c]], f"{mid}: probability {c}") for c in order]
-            total = math.fsum(values)
-            if max(values) > 1 or total <= 0 or abs(total - 1) > settings["sum_tolerance"]:
-                raise ValueError(f"{mid}: invalid probability vector for de-identified ID {pid}")
-            if abs(total - 1) > 1e-12:
-                if not settings["renormalize"]:
-                    raise ValueError(
-                        f"{mid}: probabilities do not sum to 1; explicitly enable "
-                        "probabilities.renormalize to correct within sum_tolerance"
-                    )
-                values = [v / total for v in values]
-                corrections += 1
-            disagreement = (
-                order[max(range(len(order)), key=lambda k: values[k])]
-                != prepared["loaded"][mid]["categories"][pid]
+            values, corrected, disagreement = validate_probability_row(
+                rows[pid], columns, order, prepared["loaded"][mid]["categories"][pid], settings
             )
+            corrections += corrected
             disagreements += disagreement
-            if disagreement and settings["point_prediction_consistency"] == "error":
-                raise ValueError(f"{mid}: point label disagrees with probability argmax")
             data[pid] = values
         result[mid] = data
         sources[mid] = {
@@ -219,3 +205,22 @@ def load_probabilities(args, prepared, config):
             }
         )
     return result, diagnostics, sources
+
+
+def validate_probability_row(row, columns, order, category, settings):
+    """Shared eligibility and analysis validation; never change the point label."""
+    values = [number(row[columns[c]], f"probability {c}") for c in order]
+    total = math.fsum(values)
+    if max(values) > 1 or total <= 0 or abs(total - 1) > settings["sum_tolerance"]:
+        raise ValueError("Invalid probability vector")
+    corrected = abs(total - 1) > 1e-12
+    if corrected:
+        if not settings["renormalize"]:
+            raise ValueError(
+                "Probabilities do not sum to 1; explicitly enable probabilities.renormalize to correct within sum_tolerance"
+            )
+        values = [v / total for v in values]
+    disagreement = order[max(range(len(order)), key=lambda k: values[k])] != category
+    if disagreement and settings["point_prediction_consistency"] == "error":
+        raise ValueError("Point label disagrees with probability argmax")
+    return values, corrected, disagreement

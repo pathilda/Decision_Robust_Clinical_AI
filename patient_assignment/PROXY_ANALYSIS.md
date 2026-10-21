@@ -365,3 +365,42 @@ resume and offline regeneration. New solver tests explicitly skip without Gurobi
 an available license; the older proxy suite requires Gurobi and does not skip. Large
 grids may require a full Gurobi license; synthetic tests are small. Production input
 paths and license credentials are never assumed or created.
+
+## Create new chunks from the common successful cohort
+
+Run preprocessing before `proxy-analysis` when model exports have different coverage:
+
+```bash
+python run.py proxy-chunks --config configs/proxy_inputs.yaml \
+  --models qwen_base medgemma_base medgemma_CoT OpenDecider --benchmark qwen_CoT \
+  --require-probabilities --uncertainty-config configs/proxy_uncertainty.example.yaml \
+  --chunk-size 20 --seed 42 --output scenarios/common_20_seed42
+```
+
+This reads the file paths configured in the registry. It intersects valid successful
+categorical results across the four candidates and benchmark, additionally requiring
+valid full probability vectors for each candidate. Probability validation uses the
+same settings as analysis; benchmark probabilities are not required. Explicit failed
+status flags are excluded, including in separate probability files. Missing columns,
+ambiguous duplicate IDs and mixed configurations fail rather than being silently fixed.
+No inference or solver is run, and no input exports are modified.
+
+Outputs include `chunks.csv`, `chunk_summary.csv`, `common_successful_clients.csv`,
+`exclusions.csv`, `model_coverage.csv`, and `cohort_report.json` with source hashes.
+The common-client table includes all common eligible clients before optional remainder
+removal; `chunks.csv` is the authoritative included cohort. Exclusions list each missing
+or invalid model result, so a client can have multiple exclusion reasons.
+
+The default includes a final smaller chunk. Add `--drop-remainder` for strictly equal
+chunk sizes; omitted patients are reported. Add `--eligible-chunks OLD/chunks.csv` only
+if the old membership defines your intended population (for example SLP). This uses
+only its patient-ID union, discards its grouping, and reshuffles the eligible common
+clients. It will exclude newly successful clients outside that old population. Without
+this option, all common clients in the configured exports are eligible; there is no
+implicit SLP filter.
+
+Pass `--chunks scenarios/common_20_seed42/chunks.csv` to the existing policy-analysis
+command and use a fresh results directory. Rerun deterministic, stochastic and robust
+policies on these same chunks; earlier results from different membership are not a
+matched comparison. Rerun preprocessing after changing the input export files. The
+analysis preflight remains strict and does not silently modify saved chunks.
