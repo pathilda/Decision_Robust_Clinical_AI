@@ -416,7 +416,7 @@ def test_synthetic_end_to_end_resume_and_offline_plots(session, tmp_path, monkey
     )
     page = (tmp_path / "plots" / "figures" / "regret_by_chunk_Box.html").read_text(encoding="utf-8")
     assert "plotly.js" in page
-    assert "data-filter" in page
+    assert "starting-parameter" in page
     assert "<script src=" not in page
     args.solver_seed += 1
     with pytest.raises(ValueError, match="Incompatible resume"):

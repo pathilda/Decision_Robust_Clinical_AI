@@ -94,6 +94,12 @@ def parser():
     # progress-only: end
     run.add_argument("--resume", action="store_true")
     run.add_argument("--dry-run", action="store_true")
+    # progress-only: begin
+    plots.add_argument(
+        "--extended-plots", action="store_true",
+        help="Include the separate uncertainty diagnostics and configuration-comparison report",
+    )
+    # progress-only: end
     plots.add_argument("--results", type=Path, required=True)
     return p
 

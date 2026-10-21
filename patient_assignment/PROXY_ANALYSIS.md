@@ -423,3 +423,22 @@ explicitly marked progress-only additions from source hashing. Computational edi
 outside those blocks still invalidate checkpoints. Never put mathematical or input
 processing logic inside a progress-only block. An already running Python process
 must be restarted with the updated code to display the new bar.
+
+### Ordinary plots with stochastic and robust policies
+
+Policy runs now use the same four default figures as deterministic runs:
+`regret_by_chunk`, `assignment_by_chunk`, `regret_across_chunks`, and
+`assignment_across_chunks`. Each model/policy pair is a series, with the original
+Starting Parameter dropdown, profile symbols and offsets. Chunk panels contain
+selection draws; across-chunk plots use the designated chunk-evaluation seed.
+Saved accuracy remains a unique-cohort input classification statistic.
+
+Run `python run.py proxy-plots --results YOUR_RUN --show_type Point --output NEW_PLOTS`
+(or `--show_type Box`) to regenerate without optimization. Open `NEW_PLOTS/index.html`
+to access all four figures. Displaying `plots[0]` in a notebook shows only one figure;
+iterate over all four HTML paths to display them all. `--starting-parameters` still
+filters profiles. `--extended-plots` explicitly selects the separate uncertainty
+report with diagnostics and configuration comparisons; it respects the saved plot
+configuration flags. If multiple configurations were saved, use
+`--policy-configuration-ids` to select the desired ones; distinct configurations
+are never silently pooled together.

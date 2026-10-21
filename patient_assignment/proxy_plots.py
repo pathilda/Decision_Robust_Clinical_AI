@@ -381,6 +381,10 @@ def regenerate(args):
             args.starting_parameters,
             args.policies,
             args.policy_configuration_ids,
+            # progress-only: begin
+            # Forward this display-only option after the positional filters.
+            extended_plots=getattr(args, "extended_plots", False),
+            # progress-only: end
         )
         return
     if args.policies and args.policies != ["deterministic"] or args.policy_configuration_ids:

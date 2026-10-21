@@ -122,6 +122,10 @@ def chart(frame, metric, xfield, mode, facet_cols, faceted=True):
         subplot_titles=[" / ".join(p) if p else "All selected chunks" for p in panels],
         shared_yaxes=True,
     )
+    # progress-only: begin
+    seen_legend = set()
+    configuration_counts = frame.groupby("policy").policy_configuration_id.nunique()
+    # progress-only: end
     groups = ["model_id", "policy_configuration_id", "chunk_id", "profile_id"]
     for identity, subset in frame.groupby(groups, sort=True):
         row = subset.iloc[0]
@@ -136,6 +140,16 @@ def chart(frame, metric, xfield, mode, facet_cols, faceted=True):
         if good.empty or metric not in good:
             continue
         label = f"{row.model_id} / {row.policy_configuration_id}"
+        # progress-only: begin
+        label = f"{row.model_id} / {row.policy}"
+        if configuration_counts[row.policy] > 1:
+            if row.policy == "stochastic":
+                label += f" (W={row.get('scenario_count', '')}, seed={row.get('scenario_seed', '')}, T={row.get('temperature', '')})"
+            elif row.policy == "robust":
+                budget = row.get("gamma_fraction", "") or row.get("gamma_effective", "")
+                label += f" (Gamma={budget}, threshold={row.get('probability_threshold', '')})"
+        legend_key = f"{row.model_id}/{row.policy_configuration_id}"
+        # progress-only: end
         custom = [[str(r.get(k, "")) for k in HOVERS] for r in good.to_dict("records")]
         hover = "<br>".join(k + ": %{customdata[" + str(i) + "]}" for i, k in enumerate(HOVERS))
         hover += f"<br>Successful/attempted: {len(good)}/{len(subset)}<br>Distinct assignments: {metadata['n_unique']}<extra></extra>"
@@ -154,6 +168,11 @@ def chart(frame, metric, xfield, mode, facet_cols, faceted=True):
             trace = go.Box(**kwargs, boxpoints="all", jitter=0.2, pointpos=0)
         else:
             trace = go.Scatter(**kwargs, mode="markers", marker_symbol="circle", opacity=0.75)
+        # progress-only: begin
+        trace.legendgroup = legend_key
+        trace.showlegend = legend_key not in seen_legend
+        seen_legend.add(legend_key)
+        # progress-only: end
         fig.add_trace(trace, row=panel // cols + 1, col=panel % cols + 1)
     fig.update_layout(
         template="plotly_white",
@@ -165,6 +184,17 @@ def chart(frame, metric, xfield, mode, facet_cols, faceted=True):
     )
     fig.update_yaxes(title_text=metric.replace("_", " "), matches="y")
     fig.update_xaxes(title_text=xfield.replace("_", " "))
+    # progress-only: begin
+    fig.update_layout(
+        height=max(650, 450 * ((len(panels) + cols - 1) // cols)),
+        legend={"orientation": "v", "x": 1.02, "y": 1, "xanchor": "left",
+                "yanchor": "top", "groupclick": "togglegroup", "font": {"size": 11}},
+        margin={"b": 150, "r": 260, "t": 90},
+    )
+    fig.update_xaxes(automargin=True, tickangle=-25 if xfield == "method" else 0)
+    if metric == "exact_assignment_pct":
+        fig.update_yaxes(title_text="Assignment agreement with proxy (%)", range=[0, 100])
+    # progress-only: end
     return fig
 
 
@@ -232,6 +262,20 @@ apply();
 </script>""".replace("RECORDS", records_json).replace(
         "MATCHED", "true" if title.startswith("matched_") else "false"
     )
+    # progress-only: begin
+    # Recompute legend representatives after filtering, so hiding the first chunk
+    # does not remove a model/policy from the legend.
+    script = script.replace(
+        "Plotly.restyle(gd, {visible: gd.data.map(t => matches(t.meta))});",
+        """const visible = gd.data.map(t => matches(t.meta));
+ const seen = new Set();
+ const showlegend = gd.data.map((t, i) => {
+   if (!visible[i] || seen.has(t.legendgroup)) return false;
+   seen.add(t.legendgroup); return true;
+ });
+ Plotly.restyle(gd, {visible, showlegend});""",
+    )
+    # progress-only: end
     return (
         '<!doctype html><html><head><meta charset="utf-8"><title>'
         + html.escape(title)
@@ -247,6 +291,80 @@ apply();
     )
 
 
+# progress-only: begin
+def ordinary_figures(frame, resolved, mode, facet_cols):
+    """Reuse the deterministic report's profile grouping and sampling roles."""
+    from .proxy_plots import build_figure
+
+    display = frame.copy()
+    labels = {}
+    configurations = list(dict.fromkeys(frame.policy_configuration_id))
+    for (model, configuration), data in frame.groupby(
+        ["model_id", "policy_configuration_id"], sort=False
+    ):
+        policy = data.iloc[0].policy
+        label = f"{model} / {policy}"
+        if frame.loc[frame.policy == policy, "policy_configuration_id"].nunique() > 1:
+            label += f" (config {configurations.index(configuration) + 1})"
+        labels[(model, configuration)] = label
+    display["model_id"] = [
+        labels[(r.model_id, r.policy_configuration_id)] for r in frame.itertuples()
+    ]
+    models = list(dict.fromkeys(display.model_id))
+    chunks = list(dict.fromkeys(display.chunk_id))
+    profiles = [p for p in resolved["profiles"] if p in set(display.profile_id)]
+    result = {}
+    for name, metric, faceted in (
+        ("regret_by_chunk", "proxy_regret", True),
+        ("assignment_by_chunk", "exact_assignment_pct", True),
+        ("regret_across_chunks", "proxy_regret", False),
+        ("assignment_across_chunks", "exact_assignment_pct", False),
+    ):
+        fig = build_figure(
+            display, resolved, models, chunks, profiles, mode, facet_cols, metric, faceted
+        )
+        for trace in fig.data:
+            configuration = next(c for (m, c), label in labels.items() if label == trace.name)
+            trace.hovertemplate = trace.hovertemplate.replace(
+                "<extra>", "<br>Policy configuration: " + html.escape(configuration) + "<extra>"
+            )
+        fig.update_xaxes(title_text="Model / policy", tickangle=-30, automargin=True)
+        fig.update_layout(legend_title_text="Model / policy", margin={"b": 160})
+        result[name] = fig
+    return result
+
+
+def render_ordinary(source, output, frame, resolved, mode, facet_cols):
+    from .proxy_plots import standalone as ordinary_page
+
+    coverage = (
+        f"{int(frame.certified.sum())}/{len(frame)} certified allocations; "
+        f"common proxy benchmark: {resolved['benchmark_id']}. "
+        "Failed allocations remain in the coverage denominator."
+    )
+    links = []
+    for name, fig in ordinary_figures(frame, resolved, mode, facet_cols).items():
+        target = f"figures/{name}_{mode}.html"
+        (output / target).write_text(ordinary_page(fig, name, coverage), encoding="utf-8")
+        links.append(f'<li><a href="{target}">{name.replace("_", " ")} ({mode})</a></li>')
+    accuracy = pd.read_csv(Path(source) / "accuracy_vs_proxy.csv", keep_default_na=False)
+    accuracy = accuracy[accuracy.model_id.isin(frame.model_id.unique())]
+    (output / "index.html").write_text(
+        '<!doctype html><html><head><meta charset="utf-8"><title>Proxy analysis</title>'
+        '<style>body{font:15px system-ui;margin:32px}li{margin:12px}td,th{padding:8px}</style>'
+        '</head><body><h1>Regret and assignment plots</h1><p>'
+        + html.escape(coverage)
+        + '</p><p>Four figures: open each link below. Each includes all selected models and '
+        'policies, with the original Starting Parameter dropdown and profile symbols.</p><ul>'
+        + ''.join(links)
+        + '</ul><h2>Accuracy against the proxy</h2><p>Saved unique-cohort accuracy; '
+        'optimization policies do not change input classification accuracy. Plot filters '
+        'do not redefine the original cohort.</p>'
+        + accuracy.to_html(index=False, escape=True)
+        + '<p>' + html.escape(CAPTION) + '</p></body></html>', encoding="utf-8"
+    )
+
+# progress-only: end
 def render(
     source,
     output,
@@ -258,6 +376,9 @@ def render(
     policies=None,
     configurations=None,
     allow_existing=False,
+    # progress-only: begin
+    extended_plots=False,
+    # progress-only: end
 ):
     resolved, frame = load_results(source)
     for field, allowed, requested in (
@@ -275,6 +396,11 @@ def render(
         frame = frame[frame[field].isin(values)]
     output = Path(output) if allow_existing else fresh_directory(output)
     (output / "figures").mkdir(exist_ok=True)
+    # progress-only: begin
+    if not extended_plots:
+        render_ordinary(source, output, frame, resolved, mode, facet_cols)
+        return
+    # progress-only: end
     links = []
 
     def save(name, data, metric, x="method", faceted=True, style=mode):
