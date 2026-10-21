@@ -11,6 +11,10 @@ from .experiment import ArtifactCache
 from .experiment_inputs import digest, number
 from .inputs import file_hash
 from .optimization import SolverSession
+# progress-only: begin
+# ruff: noqa: I001 -- preserve original source bytes for checkpoint compatibility
+from .proxy_progress import Progress, announce
+# progress-only: end
 from .proxy_inputs import prepare
 from .proxy_solver import ProxySettings, canonical, evaluate, select
 from .reporting import fresh_directory, write_csv, write_json
@@ -104,6 +108,9 @@ def allocation_rows(chosen, solution_id, mid, instance, seed, role, benchmark):
 
 
 def run(args):
+    # progress-only: begin
+    announce(args, "Loading and validating inputs...")
+    # progress-only: end
     prepared = prepare(args)
     resolved = prepared["resolved"]
     tolerance = number(args.optimality_tolerance, "optimality-tolerance", 1e-9)
@@ -170,6 +177,11 @@ def run(args):
     rows, allocations, references, bench_records, failures = [], [], [], [], []
     # Start Gurobi only if an uncached solve is needed, including on resume.
     with ExitStack() as stack:
+        # progress-only: begin
+        progress = stack.enter_context(Progress(
+            total=len(prepared["instances"]) * len(args.models) * len(all_seeds),
+            cache=cache, disabled=getattr(args, "no_progress", False)))
+        # progress-only: end
         active = None
 
         def session():
@@ -230,7 +242,13 @@ def run(args):
                     raise ValueError(
                         "INFEASIBLE: chunk exceeds remaining clinician count capacities"
                     )
+                # progress-only: begin
+                progress.task(instance, args.benchmark, "benchmark optimum")
+                # progress-only: end
                 bk, bo, bw = nominal(instance, args.benchmark)
+                # progress-only: begin
+                progress.phase("benchmark reference selection")
+                # progress-only: end
                 reference_id, reference = selection(
                     instance, bk, bo, bw, args.benchmark_seed, "benchmark"
                 )
@@ -267,10 +285,16 @@ def run(args):
                 nominal_error, optimum, key, weights = benchmark_error, None, None, None
                 if not benchmark_error:
                     try:
+                        # progress-only: begin
+                        progress.task(instance, mid, "deterministic optimum")
+                        # progress-only: end
                         key, optimum, weights = nominal(instance, mid)
                     except (ValueError, RuntimeError) as exc:
                         nominal_error = str(exc)
                 for seed in all_seeds:
+                    # progress-only: begin
+                    progress.task(instance, mid, "optimal selection", seed=seed)
+                    # progress-only: end
                     row = dict(
                         model_id=mid,
                         benchmark_id=args.benchmark,
@@ -293,6 +317,9 @@ def run(args):
                         sid, selected = selection(
                             instance, key, optimum, weights, seed, "candidate"
                         )
+                        # progress-only: begin
+                        progress.phase("verifying and evaluating selection")
+                        # progress-only: end
                         chosen = selected["assignment"]
                         metrics = evaluate(instance, bw, bo, chosen, reference["assignment"])
                         if metrics["proxy_regret"] < -tolerance:
@@ -325,7 +352,13 @@ def run(args):
                                 diagnostics=getattr(exc, "diagnostics", None),
                             )
                         )
+                    # progress-only: begin
+                    progress.advance(row["solver_status"] == "OPTIMAL")
+                    # progress-only: end
                     rows.append(row)
+    # progress-only: begin
+    announce(args, "Writing result tables and summaries...")
+    # progress-only: end
     distinct = []
     for instance in prepared["instances"]:
         for mid in args.models:
@@ -383,6 +416,9 @@ def run(args):
         output / "artifacts.json",
         {name: file_hash(output / name) for name in [*SAVED_TABLES, "resolved_config.json"]},
     )
+    # progress-only: begin
+    announce(args, "Rendering offline plots...")
+    # progress-only: end
     from .proxy_plots import render
 
     render(output, output, args.show_type, args.facet_cols, allow_existing=True)

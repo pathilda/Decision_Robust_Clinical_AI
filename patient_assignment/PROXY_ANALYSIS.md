@@ -404,3 +404,22 @@ command and use a fresh results directory. Rerun deterministic, stochastic and r
 policies on these same chunks; earlier results from different membership are not a
 matched comparison. Rerun preprocessing after changing the input export files. The
 analysis preflight remains strict and does not silently modify saved chunks.
+
+### Progress display
+
+`proxy-analysis` now displays a progress bar by default for both deterministic and
+stochastic/robust runs. It counts attempted allocation selections and shows the
+current model, policy parameters, chunk, profile, selection seed, solver stage,
+cache hits, new computations, and failed selections. A heartbeat refreshes elapsed
+time during long solves; robust master iterations are also shown. The percentage
+counts selections, not solver work, so the ETA is approximate and the counter can
+remain unchanged during a difficult solve. Table export and plotting have separate
+stage messages. Use `--no-progress` to suppress these displays; dry runs remain JSON.
+
+Resume an interrupted run using the same command and output directory with
+`--resume`. Completed cache entries are reused; an unfinished solve restarts.
+This display-only update preserves pre-update checkpoint fingerprints by excluding
+explicitly marked progress-only additions from source hashing. Computational edits
+outside those blocks still invalidate checkpoints. Never put mathematical or input
+processing logic inside a progress-only block. An already running Python process
+must be restarted with the updated code to display the new bar.

@@ -89,6 +89,9 @@ def parser():
         type=Path,
         help="Optional shared content-addressed cache; default OUTPUT/cache",
     )
+    # progress-only: begin
+    run.add_argument("--no-progress", action="store_true", help="Hide progress bars and stage messages")
+    # progress-only: end
     run.add_argument("--resume", action="store_true")
     run.add_argument("--dry-run", action="store_true")
     plots.add_argument("--results", type=Path, required=True)

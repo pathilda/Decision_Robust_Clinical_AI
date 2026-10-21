@@ -7,6 +7,10 @@ from collections import Counter
 from . import experiment_solver as s
 from .experiment_inputs import digest
 from .optimization import constrain_range
+# progress-only: begin
+# ruff: noqa: I001 -- preserve original source bytes for checkpoint compatibility
+from .proxy_progress import solver_iteration
+# progress-only: end
 from .proxy_solver import canonical, stream_seed
 
 ALGORITHM = "proxy-uncertainty-v1"
@@ -135,6 +139,9 @@ def solve(session, instance, nominal, problem, mode, tolerance, optimum=None, se
         iterations = 0
         while True:
             iterations += 1
+            # progress-only: begin
+            solver_iteration(problem["policy"], iterations)
+            # progress-only: end
             status = s.optimize(model, session, tolerance)
             stages.append(status)
             s.require(status, "policy selection" if optimum else "policy master")

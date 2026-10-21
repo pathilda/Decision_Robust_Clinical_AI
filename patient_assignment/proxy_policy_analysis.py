@@ -23,6 +23,10 @@ from .proxy_analysis import (
     run_identity,
     versions,
 )
+# progress-only: begin
+# ruff: noqa: I001 -- preserve original source bytes for checkpoint compatibility
+from .proxy_progress import Progress, announce, implementation_hash
+# progress-only: end
 from .proxy_inputs import prepare
 from .proxy_solver import ProxySettings, canonical, evaluate, select, stream_seed
 from .proxy_uncertainty import configuration, load_probabilities
@@ -192,6 +196,9 @@ def summaries(rows, output):
 
 
 def run(args):
+    # progress-only: begin
+    announce(args, "Loading and validating inputs...")
+    # progress-only: end
     prepared = prepare(args)
     resolved = prepared["resolved"]
     config, grid = configuration(
@@ -240,6 +247,9 @@ def run(args):
         ],
         intended_objective_degradation=0,
     )
+    # progress-only: begin
+    resolved["implementation_hash"] = implementation_hash()
+    # progress-only: end
     seeds = resolved["selection_seeds"]
     all_seeds = list(dict.fromkeys([*seeds, args.chunk_seed]))
     feasible = sum(i["feasible"] for i in prepared["instances"])
@@ -293,6 +303,11 @@ def run(args):
     class_weights = [resolved["category_weights"][c] for c in resolved["category_order"]]
     ev = config["evaluation"]
     with ExitStack() as stack:
+        # progress-only: begin
+        progress = stack.enter_context(Progress(
+            total=len(prepared["instances"]) * len(args.models) * len(grid) * len(all_seeds),
+            cache=cache, disabled=getattr(args, "no_progress", False)))
+        # progress-only: end
         active = None
 
         def session():
@@ -326,12 +341,18 @@ def run(args):
                     raise ValueError(
                         "INFEASIBLE: chunk exceeds remaining clinician count capacities"
                     )
+                # progress-only: begin
+                progress.task(instance, args.benchmark, "benchmark optimum")
+                # progress-only: end
                 bo = cache.get(
                     {"kind": "nominal", "base": bk},
                     lambda: solver.nominal(
                         session(), canonical(instance), bw, args.objective, tolerance
                     ),
                 )
+                # progress-only: begin
+                progress.phase("benchmark reference selection")
+                # progress-only: end
                 reference = cache.get(
                     {"kind": "reference", "base": bk, "seed": args.benchmark_seed},
                     lambda: select(
@@ -386,6 +407,9 @@ def run(args):
                     else None
                 )
                 for cell in grid:
+                    # progress-only: begin
+                    progress.task(instance, mid, "preparing policy", cell)
+                    # progress-only: end
                     problem, metadata = problem_for(
                         cell, instance, mid, nominal, probs, class_weights
                     )
@@ -401,6 +425,9 @@ def run(args):
                     try:
                         if error:
                             raise ValueError(error)
+                        # progress-only: begin
+                        progress.phase("policy optimum")
+                        # progress-only: end
                         optimum = cache.get(
                             key,
                             lambda: (
@@ -457,6 +484,9 @@ def run(args):
                         )
                     optima.append(optrow)
                     for seed in all_seeds:
+                        # progress-only: begin
+                        progress.task(instance, mid, "optimal selection", cell, seed)
+                        # progress-only: end
                         skey = {"kind": "policy_selection", "optimum": key, "seed": seed}
                         row = dict.fromkeys(
                             [
@@ -526,6 +556,9 @@ def run(args):
                                     )
                                 ),
                             )
+                            # progress-only: begin
+                            progress.phase("verifying and evaluating selection")
+                            # progress-only: end
                             chosen = selected["assignment"]
                             actual = solver.actual(instance, nominal, chosen)
                             achieved = (
@@ -600,7 +633,13 @@ def run(args):
                                 failure_reason=str(exc),
                                 selection_diagnostics=json.dumps(getattr(exc, "diagnostics", None)),
                             )
+                        # progress-only: begin
+                        progress.advance(row["certified"])
+                        # progress-only: end
                         rows.append(row)
+    # progress-only: begin
+    announce(args, "Writing result tables and summaries...")
+    # progress-only: end
     failures = [r for r in rows if not r["certified"]]
     report = {
         "planned_solve_counts": planned,
@@ -693,6 +732,9 @@ def run(args):
         "resolved_config.json",
     ]
     write_json(output / "artifacts.json", {name: file_hash(output / name) for name in names})
+    # progress-only: begin
+    announce(args, "Rendering offline plots...")
+    # progress-only: end
     from .proxy_policy_plots import render
 
     render(output, output, args.show_type, args.facet_cols, allow_existing=True)
