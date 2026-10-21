@@ -245,10 +245,15 @@ def test_figure_counts_groups_colors_and_offline_files(completed, tmp_path, mode
             assert fig.layout.yaxis.range == fig.layout.yaxis2.range
     render(completed, tmp_path / mode, mode, 3)
     files = list((tmp_path / mode / "figures").glob("*.html"))
-    assert len(files) == 4
+    assert len(files) == 6
     for path in files:
         text = path.read_text(encoding="utf-8")
         assert 'src="https://' not in text
+        if path.stem.startswith("regret_vs_"):
+            assert "plotly.js v" in text
+            assert 'data-filter="profile"' in text
+            assert 'data-filter="model_policy"' in text
+            continue
         assert "plotly.js v" in text and "Starting Parameter" in text
         assert "hidden.has(t.meta.model)" in text and "plotly_legenddoubleclick" in text
         # Exercise the actual offline HTML controller in Node, including all facets.

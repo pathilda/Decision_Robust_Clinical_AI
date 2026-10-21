@@ -442,3 +442,41 @@ report with diagnostics and configuration comparisons; it respects the saved plo
 configuration flags. If multiple configurations were saved, use
 `--policy-configuration-ids` to select the desired ones; distinct configurations
 are never silently pooled together.
+
+### Extraction agreement tables
+
+Both ordinary proxy reports and `combine_proxy_results.py` now export
+`extraction_exact_agreement.csv` and `extraction_qwk.csv`, plus matching HTML tables
+linked/displayed in `index.html`. These compare each model's extraction categories
+to the proxy once per unique client; they do not measure clinician assignment.
+Ordinary reports use the saved original-cohort accuracy table. Combined reports
+recompute exact agreement and quadratic weighted kappa on the union of clients,
+using the saved category order. They do not average run-level QWK values.
+Undefined QWK is shown as NA with a status explanation.
+
+Old saved runs do not contain per-client extraction labels. Consequently, combined
+extraction tables require the original inference files at their saved paths, and
+verify their full hashes before reading. Missing or modified sources produce an
+explicit error before creating output. No inference or optimization is executed.
+Copy `proxy_extraction_tables.py` together with the updated combiner and plotting
+modules when updating a remote notebook checkout. Existing report generation
+commands remain unchanged; use a fresh output folder.
+
+### Regret versus extraction scatter plots
+
+Ordinary, extended-policy and combined reports also generate
+`figures/regret_vs_qwk.html` and `figures/regret_vs_exact_extraction.html`, linked
+from the report index. They are scatter plots regardless of Point/Box mode.
+The x-axis is the model's report-cohort extraction score; y is proxy regret for
+each saved certified allocation. All selection rows and repeated assignments are
+retained without jitter, pooling or downsampling. A row serving both selection
+and chunk-evaluation roles is plotted once. Initial caseload/starting-profile and
+model/policy dropdowns combine with legend toggles. Hover shows chunk, seed,
+configuration and initial clinician caseloads. Failure and missing-score counts
+remain visible; undefined QWK is omitted only from the QWK figure.
+
+Extraction scores are constant per model and do not change when plot controls
+filter allocation rows. Ordinary reports use their saved original-cohort scores;
+combined reports use the union-of-unique-clients scores. Vertical stacks and
+coincident points are therefore expected; the points are not independent
+extraction observations. No inference or optimization runs when regenerating.

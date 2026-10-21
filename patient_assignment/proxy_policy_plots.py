@@ -349,12 +349,17 @@ def render_ordinary(source, output, frame, resolved, mode, facet_cols):
         links.append(f'<li><a href="{target}">{name.replace("_", " ")} ({mode})</a></li>')
     accuracy = pd.read_csv(Path(source) / "accuracy_vs_proxy.csv", keep_default_na=False)
     accuracy = accuracy[accuracy.model_id.isin(frame.model_id.unique())]
+    from proxy_extraction_scatter import write_scatters
+    from proxy_extraction_tables import write_tables
+    links.extend(write_scatters(frame, accuracy, resolved, output))
+    extraction_html = write_tables(accuracy, output)
+    links.append("</ul>" + extraction_html + "<ul>")
     (output / "index.html").write_text(
         '<!doctype html><html><head><meta charset="utf-8"><title>Proxy analysis</title>'
         '<style>body{font:15px system-ui;margin:32px}li{margin:12px}td,th{padding:8px}</style>'
         '</head><body><h1>Regret and assignment plots</h1><p>'
         + html.escape(coverage)
-        + '</p><p>Four figures: open each link below. Each includes all selected models and '
+        + '</p><p>Six figures: open each link below. Each includes all selected models and '
         'policies, with the original Starting Parameter dropdown and profile symbols.</p><ul>'
         + ''.join(links)
         + '</ul><h2>Accuracy against the proxy</h2><p>Saved unique-cohort accuracy; '
@@ -466,6 +471,14 @@ def render(
     for metric in ("holdout_mean", "holdout_cvar"):
         if metric in samples and samples[metric].notna().any():
             save(metric, samples, metric)
+    # progress-only: begin
+    from proxy_extraction_tables import write_tables
+    accuracy = pd.read_csv(Path(source) / "accuracy_vs_proxy.csv", keep_default_na=False)
+    accuracy = accuracy[accuracy.model_id.isin(frame.model_id.unique())]
+    from proxy_extraction_scatter import write_scatters
+    links.extend(write_scatters(frame, accuracy, resolved, output))
+    links.append("</ul>" + write_tables(accuracy, output) + "<ul>")
+    # progress-only: end
     coverage = f"{int(frame.certified.sum())}/{len(frame)} certified allocations; common point proxy: {resolved['benchmark_id']}."
     (output / "index.html").write_text(
         '<!doctype html><html><head><meta charset="utf-8"></head><body><h1>Uncertainty-aware proxy analysis</h1><p>'

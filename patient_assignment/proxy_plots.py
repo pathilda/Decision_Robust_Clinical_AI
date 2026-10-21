@@ -339,6 +339,13 @@ def render(
         .loc[models]
         .reset_index()
     )
+    # progress-only: begin
+    from proxy_extraction_scatter import write_scatters
+    links.extend(write_scatters(frame, accuracy, resolved, output))
+    from proxy_extraction_tables import write_tables
+    extraction_html = write_tables(accuracy, output)
+    links.append("</ul>" + extraction_html + "<ul>")
+    # progress-only: end
     # Plot filters never recalculate the original unique-cohort accuracy table.
     accuracy = accuracy.rename(
         columns={

@@ -9,6 +9,8 @@ import pandas as pd
 
 from patient_assignment.proxy_plots import standalone
 from patient_assignment.proxy_policy_plots import load_results, ordinary_figures
+from proxy_extraction_scatter import write_scatters
+from proxy_extraction_tables import pooled_accuracy, write_tables
 
 
 def comparable_settings(resolved):
@@ -58,6 +60,7 @@ def combine(sources, output, mode="Box", facet_cols=3):
     output = Path(output)
     if output.exists():
         raise ValueError(f"Choose a new output directory: {output} already exists")
+    accuracy = pooled_accuracy(resolved)
     figures = ordinary_figures(frame, resolved, mode, facet_cols)
     output.mkdir(parents=True)
     (output / "figures").mkdir()
@@ -66,7 +69,8 @@ def combine(sources, output, mode="Box", facet_cols=3):
         f"{len(chunks)} chunks; proxy benchmark: {reference['benchmark_id']}. "
         "Combined from completed reports without optimization. Failures remain in the denominator."
     )
-    links = []
+    extraction_html = write_tables(accuracy, output)
+    links = write_scatters(frame, accuracy, resolved, output)
     for name, fig in figures.items():
         target = f"figures/{name}_{mode}.html"
         (output / target).write_text(standalone(fig, name, coverage), encoding="utf-8")
@@ -109,12 +113,16 @@ def combine(sources, output, mode="Box", facet_cols=3):
         + html.escape(coverage)
         + "</p><ul>"
         + "".join(links)
-        + "</ul><p>Selection summaries describe optimal-selection draws; across-chunk summaries "
+        + "</ul>"
+        + extraction_html
+        + "<p>Selection summaries describe optimal-selection draws; across-chunk summaries "
         "use the designated chunk-evaluation seed. These are descriptive, not independent clinical "
         "observations. Classification accuracy is not pooled from per-run percentages.</p>",
         encoding="utf-8",
     )
-    print(f"No optimization executed. Four plots and two summary tables: {output / 'index.html'}")
+    print(
+        f"No optimization executed. Six plots, extraction tables and summary tables: {output / 'index.html'}"
+    )
 
 
 def main():
