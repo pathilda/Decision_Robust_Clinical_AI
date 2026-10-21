@@ -367,6 +367,24 @@ def render(
 
 
 def regenerate(args):
+    resolved = json.loads((args.results / "resolved_config.json").read_text(encoding="utf-8"))
+    if "policy_grid" in resolved:
+        from .proxy_policy_plots import render as render_policies
+
+        render_policies(
+            args.results,
+            args.output,
+            args.show_type,
+            args.facet_cols,
+            args.models,
+            args.chunk_ids,
+            args.starting_parameters,
+            args.policies,
+            args.policy_configuration_ids,
+        )
+        return
+    if args.policies and args.policies != ["deterministic"] or args.policy_configuration_ids:
+        raise ValueError("Saved legacy results contain only deterministic policy")
     render(
         args.results,
         args.output,

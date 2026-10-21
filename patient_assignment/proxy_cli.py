@@ -14,12 +14,17 @@ def parser():
         sub.add_argument("--models", nargs="+", required=sub is run)
         sub.add_argument("--starting-parameters", nargs="+")
         sub.add_argument("--chunk-ids", nargs="+")
+        sub.add_argument(
+            "--policies", nargs="+", choices=("deterministic", "stochastic", "robust"), default=None
+        )
+        sub.add_argument("--policy-configuration-ids", nargs="+")
         sub.add_argument("--show_type", "--show-type", choices=("Point", "Box"), default="Point")
         sub.add_argument("--facet-cols", type=int, default=3)
         sub.add_argument("--output", type=Path, required=True)
     for name in ("config", "chunks", "profiles"):
         run.add_argument("--" + name, type=Path, required=True)
     run.add_argument("--benchmark", required=True)
+    run.add_argument("--uncertainty-config", type=Path)
     run.add_argument(
         "--objective", choices=("complexity-range", "lexicographic"), default="complexity-range"
     )
@@ -75,7 +80,12 @@ def main(argv=None):
 
             regenerate(args)
             return 0
-        from .proxy_analysis import run
+        if args.uncertainty_config or (args.policies and args.policies != ["deterministic"]):
+            from .proxy_policy_analysis import run
+        else:
+            if args.policy_configuration_ids:
+                raise ValueError("Policy configuration filters require --uncertainty-config")
+            from .proxy_analysis import run
 
         return run(args)
     except (ValueError, OSError, ImportError, RuntimeError) as exc:

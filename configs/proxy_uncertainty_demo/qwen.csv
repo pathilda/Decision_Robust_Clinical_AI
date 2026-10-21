@@ -1,0 +1,9 @@
+patient_id,treatment_category,probability_easy,probability_moderate,probability_severe
+001,Easy to treatment,0.7,0.2,0.1
+002,Moderate to treatment,0.2,0.6,0.2
+003,severe to treatment,0.1,0.3,0.6
+004,Easy to treatment,0.2,0.5,0.3
+005,Moderate to treatment,0.2,0.5,0.3
+006,severe to treatment,0.1,0.2,0.7
+007,Easy to treatment,0.8,0.1,0.1
+008,Moderate to treatment,0.1,0.8,0.1

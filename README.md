@@ -1,5 +1,9 @@
 # Pre-treatment Client Classification
 
+Uncertainty-aware `proxy-analysis` now supports deterministic, stochastic SAA, and
+exact discrete budgeted robust policies. See the [policy extension guide](patient_assignment/PROXY_ANALYSIS.md#stochastic-and-robust-policy-extension)
+and the entirely synthetic `configs/proxy_uncertainty_demo/` pilot.
+
 For fixed-reference proxy benchmark analysis of saved LLM assessments, use
 `run.py proxy-analysis` and `run.py proxy-plots`. The
 [proxy analysis guide](patient_assignment/PROXY_ANALYSIS.md) documents categorical

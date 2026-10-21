@@ -1,0 +1,28 @@
+# All patients, labels, probabilities and workloads in this directory are SYNTHETIC.
+schema_version: 1
+category_order: [easy, moderate, severe]
+category_weights: {easy: 1, moderate: 2, severe: 3}
+category_aliases:
+  Easy to treatment: easy
+  Moderate to treatment: moderate
+  severe to treatment: severe
+inputs:
+  - id: Qwen
+    path: qwen.csv
+    id_column: patient_id
+    category_column: treatment_category
+  - id: MedGemma
+    path: medgemma.csv
+    id_column: patient_id
+    category_column: treatment_category
+    probability_path: medgemma_probabilities.csv
+    probability_id_column: subject
+    probability_columns: {easy: p1, moderate: p2, severe: p3}
+  - id: OpenDecider
+    path: opendecider.csv
+    id_column: patient_id
+    category_column: treatment_category
+  - id: proxy
+    path: proxy.csv
+    id_column: patient_id
+    category_column: treatment_category

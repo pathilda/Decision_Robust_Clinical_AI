@@ -1,0 +1,16 @@
+profiles:
+  balanced:
+    clinicians:
+      - {id: A, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: B, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: C, initial_count: 2, initial_complexity: 4, capacity: 6}
+  unbalanced:
+    clinicians:
+      - {id: A, initial_count: 2, initial_complexity: 3, capacity: 6}
+      - {id: B, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: C, initial_count: 2, initial_complexity: 5, capacity: 6}
+  highly_unbalanced:
+    clinicians:
+      - {id: A, initial_count: 2, initial_complexity: 2, capacity: 6}
+      - {id: B, initial_count: 2, initial_complexity: 4, capacity: 6}
+      - {id: C, initial_count: 2, initial_complexity: 6, capacity: 6}

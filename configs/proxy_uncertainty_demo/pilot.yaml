@@ -1,0 +1,11 @@
+schema_version: 1
+stochastic:
+  scenario_counts: [20]
+  scenario_seeds: [42]
+robust:
+  gamma_fractions: [0, 0.25]
+  probability_thresholds: [0.05]
+evaluation:
+  holdout_scenarios: 50
+  holdout_seed: 7781
+  cvar_alpha: 0.90

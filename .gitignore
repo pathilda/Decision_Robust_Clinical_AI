@@ -7,3 +7,4 @@ __pycache__/
 /outputs/
 clinical_target_extraction/outputs/*
 !clinical_target_extraction/outputs/.gitkeep
+/.test-temp/

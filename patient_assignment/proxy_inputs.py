@@ -171,10 +171,24 @@ def prepare(args):
     for mid, entry in chosen.items():
         keys(
             entry,
-            ["id", "path", "sheet", "id_column", "category_column"],
+            [
+                "id",
+                "path",
+                "sheet",
+                "id_column",
+                "category_column",
+                "probability_path",
+                "probability_id_column",
+                "probability_columns",
+                "probability_sheet",
+            ],
             ["id", "path", "id_column", "category_column"],
         )
-        adapted = {k: v for k, v in entry.items() if k != "category_column"}
+        adapted = {
+            k: v
+            for k, v in entry.items()
+            if k != "category_column" and not k.startswith("probability_")
+        }
         adapted.update(value_column=entry["category_column"], value_type="category")
         data = load_score(adapted, args.config.resolve().parent, scoring)
         missing = set(patients) - set(data["weights"])
