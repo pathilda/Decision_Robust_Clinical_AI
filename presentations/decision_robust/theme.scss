@@ -66,3 +66,17 @@ $font-family-sans-serif: "Segoe UI", "Arial", sans-serif;
 .roadmap-detail { min-height: 120px; margin-top: 22px; padding: 20px 26px; background: #f1f5fa; border-left: 4px solid #337667; border-radius: 0 10px 10px 0; }
 .reveal .roadmap-detail strong { display: block; font-size: 23px; margin-bottom: 8px; }
 .roadmap-detail span { display: block; font-size: 22px; line-height: 1.4; }
+
+/* Observation panels remain visible below the interactive figures. */
+.with-observations .plot-panel iframe { height: 465px; }
+.reveal .observations { margin-top: 18px; padding: 16px 22px; border-left: 4px solid #337667; border-radius: 0 10px 10px 0; background: #edf5f2; font-size: 23px; }
+.reveal .observations .block-title { font-size: 22px; margin-bottom: 6px; }
+.reveal .observations p { margin: 0; line-height: 1.4; }
+.reveal .observations ul { margin-bottom: 0; }
+.reveal .observations li { line-height: 1.35; margin-bottom: .25em; }
+.reveal .main-results li { margin-bottom: 1em; }
+.reveal .results-scope { font-size: 21px; margin-top: 30px; color: #546b86; }
+.reveal .next-steps { font-size: 25px; }
+.reveal .next-steps li { line-height: 1.4; margin-bottom: .5em; }
+.reveal .next-steps li ul { margin-top: .4em; }
+.reveal .next-steps li ul li { margin-bottom: .2em; }

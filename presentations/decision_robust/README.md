@@ -2,8 +2,7 @@
 
 The editable Quarto conversion of the supplied `Slides.tex` uses its wording,
 equations, colors and active slide order. As requested, Analysis III is removed.
-The remaining deck has 16 slides, including the unchanged blank Next Possible
-Steps slide. The original source, including excluded `iffalse` material, is
+The remaining deck has 16 slides, including the revised Main results and What to do next? slides. The original source, including excluded `iffalse` material, is
 retained in `source/Slides.tex`. No new empirical claims are introduced.
 
 ## Build with your results
@@ -71,3 +70,8 @@ contains its own embedded plotting library.
 The title date and blinded-author line are omitted. An interactive analysis roadmap
 follows the regret definition. Hover, keyboard focus and click reveal precise stage
 details in a fixed panel below the diagram; no external libraries are required.
+
+The two analysis slides include descriptive observation panels below the plots.
+These statements reflect the author's current findings; the builder does not infer
+conclusions from the selected result directory or perform significance tests.
+Review their applicability when presenting a different experiment.

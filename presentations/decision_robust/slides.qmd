@@ -248,31 +248,49 @@ The difference lies in **how LLM inference is represented and used** by the down
 
 <!-- The complete iff?alse display-methods frame in Slides.tex remains excluded. -->
 
-## Analysis I: assessment accuracy versus decision quality {.results-slide}
+## Analysis I: assessment accuracy versus decision quality {.results-slide .with-observations}
 
 @@ACCURACY_PLOTS@@
 
-::: {.original-caption}
-QWK versus regret and QWK versus assignment agreement scatters
+::: {.observations}
+<p class="block-title">Observation</p>
+The current plots show **no clear relationship between extraction agreement and proxy-benchmark regret**. Models with different extraction scores exhibit broad regret distributions, with high-regret outcomes observed across all compared models. Higher extraction agreement alone does not reliably indicate better operational performance.
 :::
 
-## Analysis II: Decision/Performance Distributions Across Uncertainty Sources {.results-slide}
+## Analysis II: Decision/Performance Distributions Across Uncertainty Sources {.results-slide .with-observations}
 
 @@DISTRIBUTION_PLOTS@@
 
-::: {.original-caption}
-Regret(and also Assignment) boxplots by LLM and decision policy, with an assignment-comparison panel.
+::: {.observations}
+<p class="block-title">Observations</p>
+- **Starting imbalance matters:** more uneven initial caseload complexities tend to produce higher regret across models.
+- **Using uncertainty can help:** stochastic policies based on LLM-reported probabilities tend to show lower average regret and less variation than their deterministic counterparts in the tested settings.
 :::
 
-## Conclusions
+## Main results {.main-results}
 
-1. **Assessment--decision disconnect:** similar prediction quality, different regret.
-2. **Context-dependent rankings:** different preferred LLM--decision combinations under different clinician loads.
-3. **Solution-selection sensitivity:** identical modeled optimality, different reference outcomes.
-4. **Uncertain inference:** when full class probabilities change allocation behavior compared with top-class labels.
-5. **Decision-aware inference:** might information extraction itself be tailored to the downstream allocation task?
+Three main observations from the experiments so far:
 
-*These are questions for analysis, not established empirical findings.*
+1. **Extraction accuracy is an incomplete indicator of decision quality.** In this pipeline, higher agreement with the proxy does not reliably translate into lower operational regret. Most models exhibit relatively high and variable regret.
 
-## Next Possible Steps
+2. **Initial conditions shape performance.** Greater imbalance in initial caseload complexities is associated with higher average regret, suggesting that operational outcomes are sensitive to the starting workload configuration.
 
+3. **Self-reported uncertainty can improve decisions.** Using LLM-reported class probabilities in stochastic optimization tends to improve average performance and reduce variation relative to using point assessments alone.
+
+::: {.results-scope}
+These are descriptive findings from the current models, proxy benchmark and tested operational settings.
+:::
+
+## What to do next? {.next-steps}
+
+1. **Test whether model scale is worth the inference cost.** Compare models from the same family with different parameter counts. Measure extraction agreement, operational regret and inference cost to assess whether larger models deliver enough decision-quality improvement to justify their additional cost.
+
+2. **Develop decision-aware inference.** Vary how much of the downstream objective, constraints and starting conditions the LLM receives, and how that information is presented. Compare three output formats:
+
+   - **Complexity scores:** the current approach, with allocation performed by the optimizer.
+   - **Client rankings:** ordinal assessments passed to an appropriate downstream allocation model.
+   - **Direct allocations:** provide the decision setup and ask the LLM to assign clients, then check feasibility and performance.
+
+   Identify the level of decision context and output format that best balances performance, reliability and cost.
+
+3. **Evaluate current leading open-source LLMs.** Include newer models and document their training approaches and release versions. Test whether these advances improve operational outcomes and strengthen the study's relevance to contemporary LLM research.

@@ -17,9 +17,12 @@
       const gd = win.document.querySelector('.plotly-graph-div');
       if (!gd || !gd.layout || !win.Plotly) return;
       win.document.body.style.margin = '12px';
-      const height = Math.max(320, frame.clientHeight - gd.getBoundingClientRect().top - 22);
+      const height = Math.max(240, frame.clientHeight - gd.getBoundingClientRect().top - 22);
       if (gd.parentElement) gd.parentElement.style.height = height + 'px';
-      win.Plotly.relayout(gd, {height});
+      win.Plotly.relayout(gd, {
+        height, 'margin.t': 65, 'margin.b': 90,
+        'title.font.size': 16, 'xaxis.tickfont.size': 11, 'yaxis.tickfont.size': 11
+      });
     } catch (_) { /* Full-size links remain available if local-file access is restricted. */ }
   }
   function activate(group, id) {
