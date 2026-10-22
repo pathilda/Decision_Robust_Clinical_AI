@@ -1,0 +1,68 @@
+<script>
+(() => {
+  function fitPlot(frame) {
+    try {
+      const win = frame.contentWindow;
+      const gd = win.document.querySelector('.plotly-graph-div');
+      if (!gd || !gd.layout || !win.Plotly) return;
+      win.document.body.style.margin = '12px';
+      const height = Math.max(320, frame.clientHeight - gd.getBoundingClientRect().top - 22);
+      if (gd.parentElement) gd.parentElement.style.height = height + 'px';
+      win.Plotly.relayout(gd, {height});
+    } catch (_) { /* Full-size links remain available if local-file access is restricted. */ }
+  }
+  function activate(group, id) {
+    group.querySelectorAll('[role="tab"]').forEach(tab => {
+      const selected = tab.getAttribute('aria-controls') === id;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    });
+    group.querySelectorAll('[role="tabpanel"]').forEach(panel => {
+      panel.hidden = panel.id !== id;
+      if (!panel.hidden) {
+        const frame = panel.querySelector('iframe');
+        if (!frame.src) {
+          frame.addEventListener('load', () => fitPlot(frame), {once:true});
+          frame.src = frame.dataset.plotUrl;
+        }
+        else fitPlot(frame);
+        group.querySelector('.plot-open').href = frame.dataset.plotUrl;
+      }
+    });
+  }
+  document.querySelectorAll('.plot-tabs').forEach(group => {
+    const tabs = [...group.querySelectorAll('[role="tab"]')];
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => activate(group, tab.getAttribute('aria-controls')));
+      tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault(); event.stopPropagation();
+        const j = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 :
+          (i + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        tabs[j].focus(); activate(group, tabs[j].getAttribute('aria-controls'));
+      });
+    });
+  });
+  function loadVisible() {
+    const slide = typeof Reveal !== 'undefined' ? Reveal.getCurrentSlide() : document;
+    if (slide) slide.querySelectorAll('.plot-tabs').forEach(group => {
+      const tab = group.querySelector('[aria-selected="true"]');
+      if (tab) activate(group, tab.getAttribute('aria-controls'));
+    });
+  }
+  if (typeof Reveal !== 'undefined') {
+    Reveal.on('ready', loadVisible); Reveal.on('slidechanged', loadVisible);
+    // Scroll view can expose several slides without a conventional slide change.
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const tab = entry.target.querySelector('[aria-selected="true"]');
+        if (tab) activate(entry.target, tab.getAttribute('aria-controls'));
+      }
+    }));
+    document.querySelectorAll('.plot-tabs').forEach(group => observer.observe(group));
+  }
+  window.addEventListener('resize', () => document.querySelectorAll('.plot-panel:not([hidden]) iframe').forEach(fitPlot));
+  loadVisible();
+})();
+</script>
+

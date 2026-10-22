@@ -1,0 +1,273 @@
+---
+title: "When Do LLM-Based Assessments Support Good Operational Decisions?"
+subtitle: "A Discussion of Accuracy, Performance, and Robustness"
+author: "Authors' names blinded for peer review"
+date: "October 2026"
+date-format: "MMMM YYYY"
+format:
+  revealjs:
+    theme: [default, theme.scss]
+    width: 1600
+    height: 900
+    margin: 0.06
+    center: false
+    slide-number: c/t
+    transition: fade
+    background-transition: none
+    navigation-mode: linear
+    controls: true
+    progress: true
+    history: true
+    hash: true
+    incremental: false
+    slide-level: 2
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true
+    include-after-body: interactions.html
+execute:
+  enabled: false
+---
+
+## Why this question matters
+
+- Operational models typically require **structured inputs** for resource-allocation decisions.
+- Much consequential organizational information is **unstructured**: clinical notes, incident reports, case descriptions, and service records.
+- LLMs can convert those narratives into assessments that enter decision models.
+- Yet an accurate assessment need not yield a **good operational decision**.
+
+::: {.statement}
+<p class="block-title">Central concern</p>
+What happens between the LLM assessment and the operational outcome—and which configurations perform reliably?
+:::
+
+## The big picture: study the coupled system
+
+```{=html}
+<div class="pipeline" role="img" aria-label="Unstructured information, Clinical notes, leads to LLM-based assessment, Complexity, then Operational decision model, Assignment, then Operational performance, Load balance. Focus of the discussion: joint design and behavior of assessment and decision model.">
+  <div class="pipeline-node">Unstructured<br>information<strong>Clinical notes</strong></div>
+  <span class="pipeline-arrow" aria-hidden="true">&#8594;</span>
+  <div class="pipeline-focus">
+    <div class="pipeline-node green">LLM-based<br>assessment<strong>Complexity</strong></div>
+    <span class="pipeline-arrow" aria-hidden="true">&#8594;</span>
+    <div class="pipeline-node green">Operational<br>decision model<strong>Assignment</strong></div>
+    <div class="pipeline-caption">Focus of the discussion: joint design and behavior</div>
+  </div>
+  <span class="pipeline-arrow" aria-hidden="true">&#8594;</span>
+  <div class="pipeline-node">Operational<br>performance<strong>Load balance</strong></div>
+</div>
+```
+
+::: {.statement}
+<p class="block-title">Experimental comparison</p>
+Hold the **clinical-text inputs and patient groups fixed** when comparing how assessment configurations and decision policies interact. Vary operational settings deliberately and separately.
+:::
+
+## Main questions discussed
+
+1. **Assessment accuracy:** How closely do LLM assessments agree with reference assessments?
+2. **Operational performance:** Do more accurate assessments necessarily yield better allocations?
+3. **Outcome robustness:** How do outcomes vary across optimal assignments, starting conditions, and client groups?
+4. **Uncertainty-aware decisions:** What changes when LLM-reported probabilities enter a scenario-based decision model rather than a point-estimate model?
+5. **Decision-aware inference (discussion direction):** Can an LLM's inference be partially or fully tailored to the downstream decision problem?
+
+## Working example: pediatric rehabilitation caseload assignment {.compact}
+
+:::: {.columns}
+::: {.column width="51%"}
+::: {.statement}
+<p class="block-title">Inputs</p>
+- Pre-treatment notes (held fixed across compared models)
+- Client complexity inferred from notes
+- Existing clinician workloads
+- Maximum number of clients per clinician and other feasibility restrictions
+:::
+:::
+::: {.column width="46%"}
+::: {.statement}
+<p class="block-title">Decision</p>
+Assign incoming clients to clinicians to balance resulting **total complexity workload**, while respecting assignment and client-count restrictions.
+:::
+:::
+::::
+
+::: {.flow-summary}
+Clinical text $\rightarrow$ complexity assessment $\rightarrow$ allocation $\rightarrow$ workload balance
+:::
+
+::: {.statement .scope}
+<p class="block-title">Scope</p>
+Caseload assignment is a working example for studying the text-to-decision pipeline, not evidence of clinical deployment effectiveness.
+:::
+
+## Assignment model: only the essential structure {.compact}
+
+:::: {.columns}
+::: {.column width="51%"}
+- $x_{ij}=1$ if client $i$ is assigned to clinician $j$.
+- $s_i$: assessed client complexity.
+- $H_j$: clinician $j$'s initial complexity load.
+- Resulting load:
+
+$$
+W_j(x;s)=H_j+\sum_i s_i x_{ij}.
+$$
+:::
+::: {.column width="46%"}
+::: {.statement}
+<p class="block-title">Feasible assignments</p>
+- Each incoming client is assigned once.
+- Each clinician's allowed client count is respected.
+- Other assignment restrictions remain the same across comparisons.
+:::
+:::
+::::
+
+::: {.statement}
+<p class="block-title">Operational loss: complexity range</p>
+$$
+F(x;s,\theta)=\max_j W_j(x;s)-\min_j W_j(x;s).
+$$
+Here $\theta$ collects starting loads and constraints; lexicographic priorities, if present, are handled within each optimization model.
+:::
+
+## From LLM assessments to decision regret
+
+- The decision system selects an allocation $x=D(\hat s;\theta)$ from LLM assessments $\hat s$.
+- Evaluate $x$ using **reference assessments** $s^{\mathrm{ref}}$ under the **same** operational conditions.
+
+$$
+V^{\mathrm{ref}}(\theta)
+=
+\min_{y\in\mathcal X(\theta)}
+F(y;s^{\mathrm{ref}},\theta)
+$$
+
+$$
+\boxed{
+R(x)=F(x;s^{\mathrm{ref}},\theta)-V^{\mathrm{ref}}(\theta)
+}
+$$
+
+::: {.statement}
+<p class="block-title">Interpretation</p>
+Regret is the additional workload imbalance relative to the reference-information optimum. Reference labels evaluate the allocation; they do not generate the LLM-based decision.
+:::
+
+## Three distinct lenses on the same system
+
+:::: {.columns}
+::: {.column width="32%"}
+::: {.statement}
+<p class="block-title">Accuracy</p>
+Agreement between LLM and reference labels.
+
+Exact accuracy and quadratic-weighted $\kappa$.
+:::
+:::
+::: {.column width="32%"}
+::: {.statement}
+<p class="block-title">Performance</p>
+Cost of the resulting allocation.
+
+Reference-evaluated regret and workload imbalance.
+:::
+:::
+::: {.column width="32%"}
+::: {.statement}
+<p class="block-title">Robustness of outcomes</p>
+**Distribution and variation** of regret and assignments across tested conditions.
+
+Compare centers, spread, and outliers.
+:::
+:::
+::::
+
+::: {.takeaway}
+**An accurate assessment need not yield a stable or high-performing decision.**
+:::
+
+## Where do differences in outcomes come from?
+
+1. **Patient groups (chunks):** Different mixes of incoming clients.
+2. **Starting clinician profiles:** Balanced, unbalanced, and highly unbalanced loads.
+3. **Multiple optimal assignments:** Different allocations with equal modeled objective value, potentially different reference regret.
+
+<!-- The iff?alse probability-distribution bullet in Slides.tex remains excluded. -->
+
+::: {.statement}
+<p class="block-title">Comparison principle</p>
+Keep these sources separate where possible; a solver seed is not a probability scenario or an independently sampled patient population.
+:::
+
+## How LLM inference enters the decision model
+
+:::: {.columns}
+::: {.column width="48%"}
+::: {.statement}
+<p class="block-title">Deterministic input</p>
+- LLM provides one complexity category per client.
+- With class probabilities, select the **highest-probability class** (argmax).
+- Optimize the assignment using these point assessments.
+:::
+:::
+::: {.column width="48%"}
+::: {.statement}
+<p class="block-title">Stochastic input</p>
+- LLM reports probabilities for the complexity classes.
+- Use those probabilities to generate possible complexity profiles.
+- Choose **one allocation** with good average performance across sampled profiles.
+:::
+:::
+::::
+
+::: {.statement .scope}
+<p class="block-title">Interpretation</p>
+The difference lies in **how LLM inference is represented and used** by the downstream model, not in changing the original clinical notes.
+:::
+
+## A unified experimental design {.compact}
+
+| Dimension | Design |
+|:---|:---|
+| LLM configuration | Qwen, MedGemma, and OpenDecider; compare prompting settings and self-reported confidence where available |
+| Decision policy | Deterministic point-assessment versus scenario-based stochastic |
+| Client composition | Common patient chunks for matched comparisons |
+| Initial conditions | Balanced, unbalanced, highly unbalanced clinician loads; common count constraints |
+| Solution selection | Different valid optimal assignments / solver selection seeds |
+| Reference evaluation | **Proxy benchmark** used consistently to score regret; clinician labels where fully available |
+
+::: {.takeaway}
+**Analyze the resulting distributions of regret and assignments under comparable conditions.**
+:::
+
+<!-- The complete iff?alse display-methods frame in Slides.tex remains excluded. -->
+
+## Analysis I: assessment accuracy versus decision quality {.results-slide}
+
+@@ACCURACY_PLOTS@@
+
+::: {.original-caption}
+QWK versus regret and QWK versus assignment agreement scatters
+:::
+
+## Analysis II: Decision/Performance Distributions Across Uncertainty Sources {.results-slide}
+
+@@DISTRIBUTION_PLOTS@@
+
+::: {.original-caption}
+Regret(and also Assignment) boxplots by LLM and decision policy, with an assignment-comparison panel.
+:::
+
+## Conclusions
+
+1. **Assessment--decision disconnect:** similar prediction quality, different regret.
+2. **Context-dependent rankings:** different preferred LLM--decision combinations under different clinician loads.
+3. **Solution-selection sensitivity:** identical modeled optimality, different reference outcomes.
+4. **Uncertain inference:** when full class probabilities change allocation behavior compared with top-class labels.
+5. **Decision-aware inference:** might information extraction itself be tailored to the downstream allocation task?
+
+*These are questions for analysis, not established empirical findings.*
+
+## Next Possible Steps
+

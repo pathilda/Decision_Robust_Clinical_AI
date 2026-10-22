@@ -17,9 +17,14 @@ METRICS = {
 }
 
 
-def build_scatter(frame, accuracy, resolved, metric):
+def build_scatter(frame, accuracy, resolved, metric, outcome="proxy_regret"):
     import plotly.graph_objects as go
 
+    if outcome not in {"proxy_regret", "exact_assignment_pct"}:
+        raise ValueError("Unsupported allocation outcome")
+    ylabel = (
+        "Proxy-benchmark regret" if outcome == "proxy_regret" else "Exact assignment agreement (%)"
+    )
     data = frame.copy()
     if "policy" not in data:
         data["policy"] = "deterministic"
@@ -28,9 +33,9 @@ def build_scatter(frame, accuracy, resolved, metric):
     scores = accuracy[["model_id", metric]].rename(columns={metric: "extraction_score"})
     data = data.merge(scores, on="model_id", how="left", validate="many_to_one")
     data["extraction_score"] = pd.to_numeric(data.extraction_score, errors="coerce")
-    data["proxy_regret"] = pd.to_numeric(data.proxy_regret, errors="coerce")
+    data["outcome_value"] = pd.to_numeric(data[outcome], errors="coerce")
     data["valid_score"] = data.extraction_score.map(math.isfinite)
-    data["valid_regret"] = data.proxy_regret.map(math.isfinite)
+    data["valid_regret"] = data.outcome_value.map(math.isfinite)
     data["success"] = data.solver_status.eq("OPTIMAL")
     fig = go.Figure()
     seen = set()
@@ -60,10 +65,11 @@ def build_scatter(frame, accuracy, resolved, metric):
         ]
         hover = "<br>".join(k + ": %{customdata[" + str(i) + "]}" for i, k in enumerate(fields))
         hover += "<br>Initial caseloads: %{customdata[8]}<br>Extraction score: %{x}<br>Proxy regret: %{y}<extra></extra>"
+        hover = hover.replace("Proxy regret:", ylabel + ":")
         fig.add_trace(
             go.Scatter(
                 x=good.extraction_score.tolist(),
-                y=good.proxy_regret.tolist(),
+                y=good.outcome_value.tolist(),
                 mode="markers",
                 name=label,
                 legendgroup=label,
@@ -93,13 +99,15 @@ def build_scatter(frame, accuracy, resolved, metric):
     fig.update_layout(
         template="plotly_white",
         height=650,
-        title="Proxy regret vs " + METRICS[metric][1],
+        title=ylabel + " vs " + METRICS[metric][1],
         xaxis_title=METRICS[metric][1],
-        yaxis_title="Proxy-benchmark regret",
+        yaxis_title=ylabel,
         legend={"title": "Model / policy", "groupclick": "togglegroup"},
         margin={"t": 90, "b": 80},
         hovermode="closest",
     )
+    if outcome == "exact_assignment_pct":
+        fig.update_yaxes(range=[0, 100])
     return fig
 
 
@@ -138,7 +146,7 @@ def scatter_page(fig, metric):
    const visible = gd.data.map((t,i) => !eligible[i] ? false : hidden.has(t.legendgroup) ? 'legendonly' : true);
    const counts = {total:0, shown:0, failed:0, missing:0};
    gd.data.forEach((t,i) => {if (visible[i] === true) Object.keys(counts).forEach(k => counts[k] += t.meta[k]);});
-   document.getElementById('coverage').textContent = `${counts.shown}/${counts.total} saved allocation rows plotted; ${counts.failed} failed; ${counts.missing} certified rows lack a finite extraction score or regret.`;
+   document.getElementById('coverage').textContent = `${counts.shown}/${counts.total} saved allocation rows plotted; ${counts.failed} failed; ${counts.missing} certified rows lack a finite extraction score or allocation outcome.`;
    Plotly.restyle(gd, {visible, showlegend});
  }
  controls.forEach(c => c.addEventListener('change', apply));
