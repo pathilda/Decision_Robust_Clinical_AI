@@ -2,7 +2,7 @@
 
 The editable Quarto conversion of the supplied `Slides.tex` uses its wording,
 equations, colors and active slide order. As requested, Analysis III is removed.
-The remaining deck has 15 slides, including the unchanged blank Next Possible
+The remaining deck has 16 slides, including the unchanged blank Next Possible
 Steps slide. The original source, including excluded `iffalse` material, is
 retained in `source/Slides.tex`. No new empirical claims are introduced.
 
@@ -67,3 +67,7 @@ slots: the builder preserves existing plot content without changing its meaning.
 to generate the assignment scatter. Existing plot HTML is copied byte-for-byte.
 Generated presentation bundles can be large because each original Plotly HTML
 contains its own embedded plotting library.
+
+The title date and blinded-author line are omitted. An interactive analysis roadmap
+follows the regret definition. Hover, keyboard focus and click reveal precise stage
+details in a fixed panel below the diagram; no external libraries are required.

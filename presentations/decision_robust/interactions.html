@@ -1,5 +1,16 @@
 <script>
 (() => {
+  const roadmapDetail = document.getElementById('roadmap-detail');
+  document.querySelectorAll('.roadmap-node').forEach(node => {
+    function showDetail() {
+      document.querySelectorAll('.roadmap-node').forEach(other => other.classList.toggle('is-active', other === node));
+      roadmapDetail.querySelector('strong').textContent = node.dataset.roadmapTitle;
+      roadmapDetail.querySelector('span').textContent = node.dataset.roadmapDetail;
+    }
+    node.addEventListener('mouseenter', showDetail);
+    node.addEventListener('focus', showDetail);
+    node.addEventListener('click', showDetail);
+  });
   function fitPlot(frame) {
     try {
       const win = frame.contentWindow;

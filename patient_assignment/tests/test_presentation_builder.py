@@ -37,7 +37,7 @@ def test_four_plot_source_build_preserves_existing_files(tmp_path, monkeypatch):
     assert "regret_vs_exact_extraction" not in text
     assert text.count("<iframe ") == 4
     assert "Next Possible Steps" in text
-    assert len(re.findall(r"^## ", text, re.MULTILINE)) == 14  # plus title slide = 15
+    assert len(re.findall(r"^## ", text, re.MULTILINE)) == 15  # plus title slide = 16
     for key, item in manifest["plots"].items():
         assert (
             hashlib.sha256((output / "plots" / f"{key}.html").read_bytes()).hexdigest()
@@ -55,7 +55,7 @@ def test_preserves_active_slide_titles_except_user_requested_changes(tmp_path):
     titles = [t for t in titles if not t.startswith("Analysis III:")]
     qmd = (TEMPLATE / "slides.qmd").read_text(encoding="utf-8")
     actual = re.findall(r"^## (.*?)(?: \{.*\})?$", qmd, re.MULTILINE)
-    actual = [t.removeprefix("Analysis II: ") for t in actual]
+    actual = [t.removeprefix("Analysis II: ") for t in actual if t != "Analysis roadmap"]
     assert actual == titles
 
 
@@ -112,3 +112,13 @@ def test_output_is_not_overwritten(tmp_path):
     output.mkdir()
     with pytest.raises(ValueError, match="overwrite"):
         build(root, output, prepare_only=True)
+
+
+def test_requested_title_cleanup_and_roadmap_location():
+    text = (TEMPLATE / "slides.qmd").read_text(encoding="utf-8")
+    assert "author:" not in text and "date:" not in text
+    second = text.split("## Why this question matters")[1].split("## ")[0]
+    assert "\u2014" not in second and "---" not in second
+    assert text.index("## From LLM assessments") < text.index("## Analysis roadmap") < text.index("## Three distinct lenses")
+    assert text.count('data-roadmap-title=') == 14
+    assert 'aria-describedby="roadmap-detail"' in text
