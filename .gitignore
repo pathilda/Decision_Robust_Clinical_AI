@@ -8,3 +8,8 @@ __pycache__/
 clinical_target_extraction/outputs/*
 !clinical_target_extraction/outputs/.gitkeep
 /.test-temp/
+
+# dr pipeline: client IDs / clinical text / logs stay off git
+/data/
+/prompts_preview/
+/logs/

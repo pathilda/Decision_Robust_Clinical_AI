@@ -1,0 +1,4 @@
+GROUP OF NEW CLIENTS
+The following {N} new clients arrive together and will be assigned to clinicians in the same round.{TARGET_SENTENCE}
+
+{PROFILES}

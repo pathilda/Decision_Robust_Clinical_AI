@@ -1,0 +1,45 @@
+# Models, local paths and serving/sampling settings (spec Section 1).
+# Checkpoints live in <--models-dir>/<key>/ (key = the names below); the commit hash of
+# each download is read from <--models-dir>/<key>/REVISION.
+schema_version: 1
+
+models:
+  qwen35-4b:
+    hf_id: Qwen/Qwen3.5-4B
+    family: qwen
+    # Qwen3.5 thinks by default; its template switches on this exact kwarg.
+    chat_template_kwargs: {enable_thinking: false}
+  qwen35-27b:
+    hf_id: Qwen/Qwen3.5-27B
+    family: qwen
+    chat_template_kwargs: {enable_thinking: false}
+  medgemma-4b:
+    hf_id: google/medgemma-4b-it
+    family: medgemma
+    chat_template_kwargs: {}
+  medgemma-27b:
+    hf_id: google/medgemma-27b-text-it
+    family: medgemma
+    chat_template_kwargs: {}
+
+serving:
+  dtype: bfloat16
+  max_model_len: 32768
+  gpu_memory_utilization: 0.90
+  enable_prefix_caching: true
+  # Applied only to checkpoints whose config.json declares a vision tower.
+  limit_mm_per_prompt: {image: 0, video: 0}
+  kv_cache_dtype: auto
+  seed: 1234
+  tensor_parallel_size: 1
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  seed: 1234
+
+max_new_tokens:
+  icf: 4096
+  rating: 1024
+  allocation: 3072
+  tiebreak: 1024

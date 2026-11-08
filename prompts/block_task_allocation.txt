@@ -1,0 +1,2 @@
+TASK
+Assign all {N} clients in the group above to the clinicians.

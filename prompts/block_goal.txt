@@ -1,0 +1,2 @@
+GOAL OF THE CASELOAD MANAGEMENT
+The aim of the assignment is to make the final caseloads of the clinicians as equal as possible. A clinician's final caseload is the complexity of the caseload they already carry plus the complexity of the new clients assigned to them.

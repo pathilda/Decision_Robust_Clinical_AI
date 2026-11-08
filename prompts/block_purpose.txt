@@ -1,0 +1,2 @@
+PURPOSE
+Your assessment will be used in a caseload management problem. Our clinic has a team of clinicians who already carry caseloads. New clients are assigned to these existing clinicians, and your assessment of each new client is an input to that assignment.

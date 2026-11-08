@@ -1,0 +1,5 @@
+YOUR ANSWER
+Assess only the target client named at the end of the message. Give one complexity score between {SCORE_MIN} and {SCORE_MAX}. The score may equal a class score, or lie between two class scores when the child falls between two classes. Do not report a class.
+Return one JSON object:
+{"reasoning": "<at most 150 words; cite the ICF fields you rely on>", "fit_issue": "<string or null>", "complexity_score": <number between {SCORE_MIN} and {SCORE_MAX}, two decimals>}
+Write the reasoning first and decide the score after it.

@@ -1,0 +1,2 @@
+TARGET CLIENT
+Assess client {CLIENT_ID} from the group above. Use the rest of the group as context only; your answer concerns this client.

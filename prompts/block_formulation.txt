@@ -1,0 +1,24 @@
+FORMAL PROBLEM
+The caseload assignment is solved as the following optimization problem.
+
+Notation
+- I: the set of new clients in the group. J: the set of clinicians.
+- s_i: the complexity of new client i, determined by its assessment.{SCORE_NOTE}
+- L0_j: the current caseload complexity of clinician j.
+- cap_j: the maximum number of new clients clinician j can take.
+- x_ij = 1 if client i is assigned to clinician j, and 0 otherwise.
+
+Final caseload of clinician j:
+  L_j = L0_j + sum over i in I of s_i * x_ij
+
+Objective (in words): make the clinicians' final caseloads as equal as possible, by minimizing the difference between the largest and the smallest final caseload.
+Objective (formally):
+  minimize   max over j in J of L_j  -  min over j in J of L_j
+
+Constraints
+(1) In words: every new client is assigned to exactly one clinician.
+    Formally: sum over j in J of x_ij = 1, for every i in I.
+(2) In words: no clinician receives more new clients than their limit.
+    Formally: sum over i in I of x_ij <= cap_j, for every j in J.
+(3) In words: each assignment is either made or not made.
+    Formally: x_ij in {0, 1}.

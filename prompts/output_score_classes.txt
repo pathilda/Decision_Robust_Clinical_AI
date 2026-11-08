@@ -1,0 +1,3 @@
+CLASS SCORES
+Each class has a complexity score:
+{CLASS_SCORE_LIST}.

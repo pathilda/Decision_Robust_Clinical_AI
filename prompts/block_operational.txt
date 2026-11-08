@@ -1,0 +1,7 @@
+CLINICIANS
+The new clients will be assigned to the following clinicians. Each clinician already carries a caseload, and each can take only a limited number of new clients.
+
+{CLINICIAN_LINES}
+
+RESTRICTIONS
+{RESTRICTION_LINES}

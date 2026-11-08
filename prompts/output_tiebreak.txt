@@ -1,0 +1,5 @@
+YOUR ANSWER
+You will see several candidate assignments of the whole group of new clients to clinicians. An optimization model produced all of them and considers them equally good or nearly equally good, based on its own assessment of the clients. Using the ICF profiles, choose the one candidate that you expect to make the clinicians' final caseloads most equal in reality.
+Return one JSON object:
+{"reasoning": "<at most 200 words; compare the candidates using the ICF profiles>", "chosen_candidate": <candidate number>}
+Write the reasoning first and choose after it.

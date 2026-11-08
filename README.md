@@ -1,5 +1,31 @@
 # Pre-treatment Client Classification
 
+## Decision Robust inference pipeline (`dr/`)
+
+The ICF-profile -> rating/allocation/tie-break study (five classes, six information rungs,
+four models) lives in [`dr/`](dr/), with config in [`config/`](config/), verbatim prompt
+templates in [`prompts/`](prompts/) and guided-decoding schemas in [`schemas/`](schemas/).
+It wraps the existing loader, load profiles and OR/evaluation code without modifying them; see
+[NOTES_existing_code.md](NOTES_existing_code.md) for the reused functions, every OR constraint,
+and the deviations that need a decision. Order of work:
+
+Every command takes every directory it uses as an argument (`M` = models, `D` = data,
+`O` = outputs):
+
+```bash
+M=/project/me/models; H=/project/me/hf_cache; D=/project/me/dr_study/data; O=/project/me/dr_study/outputs
+bash scripts/download_models.sh qwen35-4b --models-dir $M --hf-home $H      # login node, one model per call
+python -m dr.chunks --clients <workbook.xlsx> --discipline SLP --deidentified-confirmed --data-dir $D
+sbatch slurm/run.sbatch medgemma-4b --steps icf --max-clients 10 --models-dir $M --data-dir $D --outputs-dir $O
+python -m dr.report icf --model medgemma-4b --outputs-dir $O
+sbatch slurm/run.sbatch qwen35-27b --steps icf --models-dir $M --data-dir $D --outputs-dir $O
+python -m dr.exclusions --data-dir $D --outputs-dir $O                      # after ICF for all four models
+python -m dr.preview --model qwen35-4b --models-dir $M --data-dir $D --outputs-dir $O --previews-dir <P>
+sbatch slurm/run.sbatch qwen35-4b --chunk-ids 1 2 --models-dir $M --data-dir $D --outputs-dir $O   # pilot
+python -m dr.report pilot --model qwen35-4b --outputs-dir $O
+python -m dr.evaluate --models ... --benchmark-file <reference> --data-dir $D --outputs-dir $O
+```
+
 Uncertainty-aware `proxy-analysis` now supports deterministic, stochastic SAA, and
 exact discrete budgeted robust policies. See the [policy extension guide](patient_assignment/PROXY_ANALYSIS.md#stochastic-and-robust-policy-extension)
 and the entirely synthetic `configs/proxy_uncertainty_demo/` pilot.

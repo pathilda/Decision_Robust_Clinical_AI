@@ -1,0 +1,5 @@
+YOUR ANSWER
+Assign every new client in the group to exactly one clinician. Respect every restriction. Aim to make the clinicians' final caseloads as equal as possible, using your own judgment of each client's complexity from their ICF profile.
+Return one JSON object:
+{"reasoning": "<at most 250 words>", "assignment": [{"client_id": "<id>", "clinician_id": "<id>"}, ...]}
+List every client exactly once. Write the reasoning first and the assignment after it.

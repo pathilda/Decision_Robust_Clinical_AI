@@ -1,0 +1,4 @@
+YOUR ANSWER
+Assess only the target client named at the end of the message. Return one JSON object:
+{"reasoning": "<at most 150 words; cite the ICF fields you rely on>", "fit_issue": "<string or null>", "class": <1, 2, 3, 4 or 5>}
+Write the reasoning first and decide the class after it.

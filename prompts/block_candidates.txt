@@ -1,0 +1,4 @@
+CANDIDATE ASSIGNMENTS
+{CANDIDATE_LINES}
+
+Choose one candidate.

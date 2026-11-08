@@ -1,0 +1,6 @@
+Client ID: {CLIENT_ID}
+
+Pre-treatment clinical notes (in date order):
+{NOTES}
+
+Return the ICF profile of this child as one JSON object that follows the schema exactly.

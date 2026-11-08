@@ -25,6 +25,7 @@ proxy = ["gurobipy>=11", "plotly>=5.9"]
 dev = ["pytest>=8", "ruff>=0.6"]
 parquet = ["pyarrow>=14"]
 opendecider = ["opendecider[small]>=0.1.2"]
+dr = ["gurobipy>=11", "huggingface-hub>=0.34"]
 
 [project.scripts]
 clinical-treatment-classification = "clinical_target_extraction.src.cli:main"
@@ -33,7 +34,7 @@ clinical-compare-models = "model_comparison.cli:main"
 clinical-patient-assignment = "patient_assignment.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["clinical_target_extraction*", "opendecider_inference*", "model_comparison*", "patient_assignment*"]
+include = ["clinical_target_extraction*", "opendecider_inference*", "model_comparison*", "patient_assignment*", "dr*"]
 
 [tool.setuptools.package-data]
 clinical_target_extraction = ["prompts/*.txt"]
@@ -44,6 +45,7 @@ testpaths = [
   "opendecider_inference/tests",
   "model_comparison/tests",
   "patient_assignment/tests",
+  "dr/tests",
 ]
 
 [tool.ruff]

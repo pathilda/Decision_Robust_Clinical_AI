@@ -1,0 +1,5 @@
+YOUR ANSWER
+Assess only the target client named at the end of the message. Express your uncertainty as a probability for each class. The probabilities must be between 0 and 1, use two decimals, and sum to 1. Put probability on more than one class when the profile is ambiguous or information is missing.
+Return one JSON object:
+{"reasoning": "<at most 150 words; cite the ICF fields you rely on>", "fit_issue": "<string or null>", "probabilities": {"1": p1, "2": p2, "3": p3, "4": p4, "5": p5}}
+Write the reasoning first and decide the probabilities after it.

@@ -1,0 +1,28 @@
+# Study-level settings that wrap the existing OR code (spec Sections 2.3, 7.1, 10).
+schema_version: 1
+
+load_profiles: load_profiles.yaml      # relative to this file
+profile_ids: [balanced, unbalanced, highly_unbalanced]
+
+chunks:
+  size: 20
+  seed: 42
+  merge_remainder_below: 10            # last chunk < 10 clients is merged into the previous one
+
+optimization:
+  # Existing proxy-analysis default objective: minimize max - min final caseload complexity.
+  # It is the formulation shown at rung 6; the lexicographic variant is not supported here.
+  objective: complexity-range
+  n_seeds: 20
+  sample_seed: 42                      # existing default: selection seeds 42, 43, ..., 42+n-1
+  optimality_tolerance: 1.0e-7         # existing proxy-analysis default
+  solver_seed: 0
+  threads: 1
+  time_limit: null
+  # Stochastic (SAA) model for the distribution output; existing default first grid values.
+  scenario_count: 20
+  scenario_seed: 42
+  temperature: 1.0
+
+evaluation:
+  benchmark_seed: 1001                 # existing default reference-selection seed

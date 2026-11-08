@@ -1,0 +1,27 @@
+# Complexity classes for the Decision Robust inference study (spec Sections 2.4 and 5.2).
+# Single source of truth: prompts, parsing and the OR stage all read this file.
+# Definition bullets are copied verbatim from the specification (including its wording).
+schema_version: 1
+
+classes:
+  - id: 1
+    score: 1.0
+    definition:
+      - "Child with delay/difficulty in speech production (artic, phono – mild/mod), fluency or language. No known developmental factors/needs. No other HCPs (other than possibly a family physician or pediatrician) involved in care. Caregiver capacity appropriate to support care and no identified activity or participation barriers/limitations."
+  - id: 2
+    score: 1.2
+    definition:
+      - "Child with delay/difficulty in speech production, fluency or language (severe+). No known developmental factors/needs identified. No other HCPs (other than possibly a family physician or pediatrician) involved in care. Caregiver capacity appropriate to support care and no identified activity or participation barriers/limitations."
+      - "Child with mild/moderate delay/difficult in one of the areas (speech production, fluency or language) with one additional significant factor or minimal impacts. Examples include: additional developmental need (e.g., OT/PT involvement/waitlisted or known/queried developmental impact), possible activity or participation barriers/limitations OR impacted caregiver capacity appropriate to support care."
+  - id: 3
+    score: 1.4
+    definition:
+      - "Child with a delay/difficulty in more than one area of need (e.g., receptive AND expressive language, speech AND fluency). No known developmental factors/needs identified. There may be some activity or participation impacts. Caregiver capacity appropriate to support care."
+  - id: 4
+    score: 1.6
+    definition:
+      - "Child with delay/difficulty in more than one area of need with queried or known developmental factors or needs. May include multiple professionals (2+) above/beyond family physician/pediatrician. There may be some activity or participation impacts. Caregiver capacity may benefit from support and unclear personal or environmental factors."
+  - id: 5
+    score: 1.8
+    definition:
+      - "Child with delay/difficulty in more than one area of need with queried or known developmental factors or needs. May include multiple professionals above/beyond such as OT, PT, SW, specialists or referrals to other organizations such as FAST team, Cleft Lip & Palate, etc. Activity or participation barriers/limitations and/or impacted caregiver capacity appropriate to support care. Environmental or personal factors impacting care."

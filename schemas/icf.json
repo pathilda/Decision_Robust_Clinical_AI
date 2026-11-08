@@ -1,0 +1,922 @@
+{
+  "type": "object",
+  "properties": {
+    "body_structures": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "queried",
+            "no_concern",
+            "not_documented"
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "queried"
+                ]
+              },
+              "evidence": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "description",
+              "status",
+              "evidence"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 5
+        }
+      },
+      "required": [
+        "status",
+        "findings"
+      ],
+      "additionalProperties": false
+    },
+    "body_functions": {
+      "type": "object",
+      "properties": {
+        "articulation_phonology": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "motor_speech_planning": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "fluency": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "voice_resonance": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "receptive_language": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "expressive_language": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "social_communication_pragmatics": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "hearing_auditory_processing": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "oral_motor_feeding_swallowing": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "qualifier": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8,
+                9
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "qualifier",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "articulation_phonology",
+        "motor_speech_planning",
+        "fluency",
+        "voice_resonance",
+        "receptive_language",
+        "expressive_language",
+        "social_communication_pragmatics",
+        "hearing_auditory_processing",
+        "oral_motor_feeding_swallowing"
+      ],
+      "additionalProperties": false
+    },
+    "activity": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "queried",
+            "no_concern",
+            "not_documented"
+          ]
+        },
+        "qualifier": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            8,
+            9
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "qualifier",
+        "description",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "participation": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "queried",
+            "no_concern",
+            "not_documented"
+          ]
+        },
+        "qualifier": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            8,
+            9
+          ]
+        },
+        "settings_affected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "home",
+              "childcare_school",
+              "community"
+            ]
+          },
+          "maxItems": 3
+        },
+        "description": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "qualifier",
+        "settings_affected",
+        "description",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "environmental_factors": {
+      "type": "object",
+      "properties": {
+        "caregiver_capacity": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "barrier",
+                "facilitator",
+                "neither"
+              ]
+            },
+            "magnitude": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "direction",
+            "magnitude",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "home_community_environment": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "barrier",
+                "facilitator",
+                "neither"
+              ]
+            },
+            "magnitude": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "direction",
+            "magnitude",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "service_access_social_determinants": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "barrier",
+                "facilitator",
+                "neither"
+              ]
+            },
+            "magnitude": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                8
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "direction",
+            "magnitude",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "family_physician_or_pediatrician_involved": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "no",
+            "not_documented"
+          ]
+        },
+        "other_professionals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "involved",
+                  "waitlisted",
+                  "referred",
+                  "queried"
+                ]
+              },
+              "evidence": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "status",
+              "evidence"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "caregiver_capacity",
+        "home_community_environment",
+        "service_access_social_determinants",
+        "family_physician_or_pediatrician_involved",
+        "other_professionals"
+      ],
+      "additionalProperties": false
+    },
+    "personal_factors": {
+      "type": "object",
+      "properties": {
+        "age": {
+          "type": "string"
+        },
+        "developmental_factors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "known",
+                  "queried"
+                ]
+              },
+              "evidence": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "description",
+              "status",
+              "evidence"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 5
+        },
+        "behavioural_profile": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "birth_history": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "queried",
+                "no_concern",
+                "not_documented"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "description",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "other": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "description",
+              "evidence"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 5
+        }
+      },
+      "required": [
+        "age",
+        "developmental_factors",
+        "behavioural_profile",
+        "birth_history",
+        "other"
+      ],
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "areas_of_need": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "articulation_phonology",
+              "motor_speech_planning",
+              "fluency",
+              "voice_resonance",
+              "receptive_language",
+              "expressive_language",
+              "social_communication_pragmatics",
+              "hearing_auditory_processing",
+              "oral_motor_feeding_swallowing"
+            ]
+          },
+          "maxItems": 9
+        },
+        "n_areas_of_need": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_severity_qualifier": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            8
+          ]
+        },
+        "n_other_professionals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "developmental_factors_present": {
+          "type": "string",
+          "enum": [
+            "none",
+            "queried",
+            "known"
+          ]
+        },
+        "activity_or_participation_limited": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "no",
+            "not_documented"
+          ]
+        },
+        "caregiver_capacity_impacted": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "no",
+            "not_documented"
+          ]
+        },
+        "environmental_or_personal_factors_impacting_care": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "no",
+            "not_documented"
+          ]
+        },
+        "documentation_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "areas_of_need",
+        "n_areas_of_need",
+        "max_severity_qualifier",
+        "n_other_professionals",
+        "developmental_factors_present",
+        "activity_or_participation_limited",
+        "caregiver_capacity_impacted",
+        "environmental_or_personal_factors_impacting_care",
+        "documentation_gaps"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "body_structures",
+    "body_functions",
+    "activity",
+    "participation",
+    "environmental_factors",
+    "personal_factors",
+    "summary"
+  ],
+  "additionalProperties": false
+}

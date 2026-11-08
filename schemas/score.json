@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "reasoning": {
+      "type": "string"
+    },
+    "fit_issue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "complexity_score": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1.8
+    }
+  },
+  "required": [
+    "reasoning",
+    "fit_issue",
+    "complexity_score"
+  ],
+  "additionalProperties": false
+}
