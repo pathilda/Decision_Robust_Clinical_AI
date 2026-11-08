@@ -9,10 +9,14 @@ models:
     family: qwen
     # Qwen3.5 thinks by default; its template switches on this exact kwarg.
     chat_template_kwargs: {enable_thinking: false}
+    # Qwen3.5's linear-attention (GDN) layers default to a FlashInfer kernel that is
+    # JIT-compiled with nvcc; the Triton kernel needs no CUDA toolkit on the node.
+    engine_kwargs: {gdn_prefill_backend: triton}
   qwen35-27b:
     hf_id: Qwen/Qwen3.5-27B
     family: qwen
     chat_template_kwargs: {enable_thinking: false}
+    engine_kwargs: {gdn_prefill_backend: triton}
   medgemma-4b:
     hf_id: google/medgemma-4b-it
     family: medgemma
@@ -30,6 +34,9 @@ serving:
   # Applied only to checkpoints whose config.json declares a vision tower.
   limit_mm_per_prompt: {image: 0, video: 0}
   kv_cache_dtype: auto
+  # Compact JSON: without this the grammar allows unlimited whitespace between tokens and
+  # greedy decoding (seen with medgemma-4b) can emit newlines until max_tokens.
+  structured_outputs: {disable_any_whitespace: true}
   seed: 1234
   tensor_parallel_size: 1
 

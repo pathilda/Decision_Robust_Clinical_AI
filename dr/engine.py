@@ -64,6 +64,15 @@ def is_multimodal(model_path):
     return "vision_config" in json.loads(config.read_text(encoding="utf-8"))
 
 
+def structured_outputs_config(options):
+    """vLLM StructuredOutputsConfig from models.yaml serving.structured_outputs."""
+    try:
+        from vllm.config import StructuredOutputsConfig
+    except ImportError as exc:  # pragma: no cover - depends on the installed vLLM
+        raise RuntimeError("this vLLM has no StructuredOutputsConfig; upgrade vLLM") from exc
+    return StructuredOutputsConfig(**dict(options))
+
+
 class VLLMEngine:
     """Loads one model once; every call uses llm.chat with the model's own chat template."""
 
@@ -96,6 +105,11 @@ class VLLMEngine:
         )
         if self.multimodal:
             kwargs["limit_mm_per_prompt"] = dict(self.serving["limit_mm_per_prompt"])
+        if self.serving.get("structured_outputs"):
+            kwargs["structured_outputs_config"] = structured_outputs_config(
+                self.serving["structured_outputs"])
+        # Per-model vLLM engine overrides from models.yaml (recorded in the manifest).
+        kwargs.update(entry.get("engine_kwargs") or {})
         self.prefix_caching_error = None
         print(f">>> Loading {entry['key']} from {path}", file=sys.stderr, flush=True)
         try:

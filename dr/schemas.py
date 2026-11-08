@@ -53,6 +53,16 @@ def string():
     return {"type": "string"}
 
 
+# Cap on every ICF free-text field. The ICF prompt limits evidence to 30 words and descriptions
+# to 25 words (~200 characters); 400 enforces that rule with headroom and bounds the greedy
+# copy-loops that otherwise run a field until max_tokens.
+ICF_TEXT_MAX_CHARS = 400
+
+
+def text():
+    return {"type": "string", "maxLength": ICF_TEXT_MAX_CHARS}
+
+
 def enum(values, kind="string"):
     return {"type": kind, "enum": list(values)}
 
@@ -75,8 +85,8 @@ def qualified_field():
         {
             "status": enum(STATUS),
             "qualifier": enum(GENERIC_QUALIFIERS, "integer"),
-            "description": string(),
-            "evidence": string(),
+            "description": text(),
+            "evidence": text(),
         }
     )
 
@@ -87,14 +97,14 @@ def environmental_field():
             "status": enum(STATUS),
             "direction": enum(DIRECTIONS),
             "magnitude": enum(ENV_MAGNITUDES, "integer"),
-            "description": string(),
-            "evidence": string(),
+            "description": text(),
+            "evidence": text(),
         }
     )
 
 
 def described_field():
-    return obj({"status": enum(STATUS), "description": string(), "evidence": string()})
+    return obj({"status": enum(STATUS), "description": text(), "evidence": text()})
 
 
 def icf_schema():
@@ -107,9 +117,9 @@ def icf_schema():
                     "findings": array(
                         obj(
                             {
-                                "description": string(),
+                                "description": text(),
                                 "status": known_or_queried,
-                                "evidence": string(),
+                                "evidence": text(),
                             }
                         ),
                         ARRAY_LIMITS["findings"],
@@ -123,8 +133,8 @@ def icf_schema():
                     "status": enum(STATUS),
                     "qualifier": enum(GENERIC_QUALIFIERS, "integer"),
                     "settings_affected": array(enum(SETTINGS), len(SETTINGS)),
-                    "description": string(),
-                    "evidence": string(),
+                    "description": text(),
+                    "evidence": text(),
                 }
             ),
             "environmental_factors": obj(
@@ -134,9 +144,9 @@ def icf_schema():
                     "other_professionals": array(
                         obj(
                             {
-                                "role": string(),
+                                "role": text(),
                                 "status": enum(PROFESSIONAL_STATUS),
-                                "evidence": string(),
+                                "evidence": text(),
                             }
                         ),
                         ARRAY_LIMITS["other_professionals"],
@@ -145,13 +155,13 @@ def icf_schema():
             ),
             "personal_factors": obj(
                 {
-                    "age": string(),
+                    "age": text(),
                     "developmental_factors": array(
                         obj(
                             {
-                                "description": string(),
+                                "description": text(),
                                 "status": known_or_queried,
-                                "evidence": string(),
+                                "evidence": text(),
                             }
                         ),
                         ARRAY_LIMITS["developmental_factors"],
@@ -159,7 +169,7 @@ def icf_schema():
                     "behavioural_profile": described_field(),
                     "birth_history": described_field(),
                     "other": array(
-                        obj({"description": string(), "evidence": string()}),
+                        obj({"description": text(), "evidence": text()}),
                         ARRAY_LIMITS["other"],
                     ),
                 }
@@ -174,7 +184,7 @@ def icf_schema():
                     "activity_or_participation_limited": enum(YES_NO_ND),
                     "caregiver_capacity_impacted": enum(YES_NO_ND),
                     "environmental_or_personal_factors_impacting_care": enum(YES_NO_ND),
-                    "documentation_gaps": array(string(), 20),
+                    "documentation_gaps": array(text(), 20),
                 }
             ),
         }
@@ -273,6 +283,8 @@ def validate(value, schema, path="$"):
     }
     if kind and not checks[kind](value):
         return [f"{path}: expected {kind}"]
+    if kind == "string" and "maxLength" in schema and len(value) > schema["maxLength"]:
+        errors.append(f"{path}: longer than {schema['maxLength']} characters")
     if "enum" in schema and value not in schema["enum"]:
         errors.append(f"{path}: {value!r} not in {schema['enum']}")
     if kind == "number" or kind == "integer":
