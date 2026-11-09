@@ -80,6 +80,8 @@ def cohorts(ws, model, chunk_ids=None):
     result = {}
     for chunk_id, clients in chunks.items():
         kept = [c for c in clients if c not in excluded]
+        if not kept:  # whole chunk excluded, e.g. ICF was run with --max-clients
+            continue
         missing = [c for c in kept if c not in profiles]
         if missing:
             raise ValueError(

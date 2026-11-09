@@ -16,7 +16,10 @@ models:
     hf_id: Qwen/Qwen3.5-27B
     family: qwen
     chat_template_kwargs: {enable_thinking: false}
-    engine_kwargs: {gdn_prefill_backend: triton}
+    # Each in-flight sequence needs one linear-attention state block; after the 50 GB of
+    # weights an H100 holds only ~340, below vLLM's default max_num_seqs of 1024. Real
+    # concurrency is KV-bound well below 256, so this cap does not slow anything down.
+    engine_kwargs: {gdn_prefill_backend: triton, max_num_seqs: 256}
   medgemma-4b:
     hf_id: google/medgemma-4b-it
     family: medgemma
@@ -35,8 +38,9 @@ serving:
   limit_mm_per_prompt: {image: 0, video: 0}
   kv_cache_dtype: auto
   # Compact JSON: without this the grammar allows unlimited whitespace between tokens and
-  # greedy decoding (seen with medgemma-4b) can emit newlines until max_tokens.
-  structured_outputs: {disable_any_whitespace: true}
+  # greedy decoding (seen with medgemma-4b) can emit newlines until max_tokens. vLLM only
+  # supports this option with an explicit xgrammar or guidance backend (not "auto").
+  structured_outputs: {backend: xgrammar, disable_any_whitespace: true}
   seed: 1234
   tensor_parallel_size: 1
 

@@ -60,6 +60,13 @@ to `prompts/block_formulation.txt`, and to `dr/or_bridge.check_allocation`.
    existing inference commands. `dr.icf` checks it.
 5. **Environmental factors are rendered with a magnitude word**, for example
    `barrier, moderate (2, known).`, matching the body-function format.
+6. **Incomplete chunks are excluded whole.** A client whose ICF failed for any model excludes
+   its entire chunk (reason `chunk_incomplete`), so every chunk used downstream has all of its
+   clients. `dr.exclusions --keep-partial-chunks` restores the spec's per-client exclusion.
+7. **Decoding settings added after the pilot.** Compact JSON (`disable_any_whitespace`, xgrammar
+   backend) for all models, a 400-character cap on ICF free-text fields (the prompt asks for at
+   most 30 words), and per-model vLLM settings for Qwen3.5 (`gdn_prefill_backend: triton`;
+   `max_num_seqs: 256` for 27B). See `config/models.yaml`.
 
 ## ICF summary recomputation rules (`dr/icf_profile.recompute_summary`)
 

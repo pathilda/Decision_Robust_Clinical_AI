@@ -138,7 +138,14 @@ def test_chunks_file_and_icf_exclusions(workspace):
     engine = FakeEngine(responder)
     icf.run(workspace, "qwen35-4b", engine, "rev", max_clients=5)
     rows, total = exclusions.build(workspace, ["qwen35-4b"])
-    assert total == 30 and len(rows) == 25  # pilot: un-run clients are excluded
+    assert total == 30 and len(rows) == 30  # pilot: un-run clients exclude their whole chunk
+    from dr.context import cohorts
+
+    assert cohorts(workspace, "qwen35-4b") == {}  # incomplete chunks are excluded whole
+    rows, _ = exclusions.build(workspace, ["qwen35-4b"], keep_partial_chunks=True)
+    assert len(rows) == 25
+    kept = cohorts(workspace, "qwen35-4b")  # fully excluded chunks are dropped, not empty
+    assert [len(v) for v in kept.values()] == [5]
     record = next(iter(JsonlStore(workspace.icf("qwen35-4b")).ok().values()))
     assert record["summary_recomputed"] and record["rendered_profile_tokens"] > 0
     assert "Class" not in record["raw_text"]
