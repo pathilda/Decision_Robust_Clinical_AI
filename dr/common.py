@@ -166,6 +166,7 @@ def classes_config():
         "ids": ids,
         "scores": {int(c["id"]): float(c["score"]) for c in classes},
         "definitions": {int(c["id"]): list(c["definition"]) for c in classes},
+        "therapy_plans": {int(c["id"]): c.get("typical_therapy_plan") for c in classes},
         "min": min(scores),
         "max": max(scores),
         "sha256": file_sha256(CONFIG_DIR / "classes.yaml"),

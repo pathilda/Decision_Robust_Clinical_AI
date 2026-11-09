@@ -67,6 +67,10 @@ to `prompts/block_formulation.txt`, and to `dr/or_bridge.check_allocation`.
    backend) for all models, a 400-character cap on ICF free-text fields (the prompt asks for at
    most 30 words), and per-model vLLM settings for Qwen3.5 (`gdn_prefill_backend: triton`;
    `max_num_seqs: 256` for 27B). See `config/models.yaml`.
+8. **Class definitions replaced (prompts v1.1.0).** `config/classes.yaml` now holds the clinical
+   team's class table (description plus typical therapy plan per class) instead of the spec's
+   definitions. Class scores (1.0 to 1.8) are unchanged. ICF prompts never include the classes,
+   so ICF profiles are unaffected; every rating, allocation and tie-break prompt changes.
 
 ## ICF summary recomputation rules (`dr/icf_profile.recompute_summary`)
 

@@ -43,6 +43,8 @@ def class_definitions():
     for cid in cfg["ids"]:
         lines.append(f"Class {cid}:")
         lines.extend(f"- {bullet}" for bullet in cfg["definitions"][cid])
+        if cfg["therapy_plans"][cid]:
+            lines.append(f"- Typical therapy plan: {cfg['therapy_plans'][cid]}")
     return "\n".join(lines)
 
 

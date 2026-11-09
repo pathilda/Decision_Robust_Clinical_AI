@@ -130,7 +130,8 @@ def test_class_scores_only_for_score_output():
     assert "CLASS SCORES" in system_prompt("tiebreak", "score")
     assert "CLASS SCORES" not in system_prompt("tiebreak", "label")
     for kind in ("label", "distribution", "score", "allocation"):
-        assert "Class 1:\n- Child with delay/difficulty" in system_prompt(kind)
+        assert "Class 1:\n- Client with mild/moderate needs in 1 area" in system_prompt(kind)
+        assert "- Typical therapy plan: joint, team or 1:1 (often team/joint)" in system_prompt(kind)
 
 
 def test_no_formulas_at_rung5_anywhere():
