@@ -111,7 +111,7 @@ def pool(solver, model, rung, source, profile_id, clinicians, chunk_id, ratings,
             }
             for s in result["solutions"]
         ],
-        **{k: v for k, v in result.items() if k.startswith("scenario") or k.startswith("n_distinct_")},
+        **{k: v for k, v in result.items() if k.startswith(("scenario", "n_distinct_"))},
     }
 
 
@@ -119,9 +119,8 @@ def run(ws, model, rungs, sources, profiles, chunk_ids=None, n_seeds=None):
     chunk_cohorts = cohorts(ws, model, chunk_ids)
     all_profiles = load_profiles()
     seeds = selection_seeds()
-    if n_seeds is not None:
-        if n_seeds != len(seeds):
-            raise ValueError(f"--seeds must equal optimization.n_seeds={len(seeds)} in study.yaml")
+    if n_seeds is not None and n_seeds != len(seeds):
+        raise ValueError(f"--seeds must equal optimization.n_seeds={len(seeds)} in study.yaml")
     counts = {"written": 0, "reused": 0, "incomplete": 0, "infeasible": 0, "failed": 0}
     with Solver() as solver:
         identity_base = {

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from functools import cache
 
 from .common import SCHEMAS_DIR, classes_config
@@ -49,10 +50,6 @@ def obj(properties):
     }
 
 
-def string():
-    return {"type": "string"}
-
-
 # Cap on every ICF free-text field. The ICF prompt limits evidence to 30 words and descriptions
 # to 25 words (~200 characters); 400 enforces that rule with headroom and bounds the greedy
 # copy-loops that otherwise run a field until max_tokens.
@@ -61,6 +58,22 @@ ICF_TEXT_MAX_CHARS = 400
 
 def text():
     return {"type": "string", "maxLength": ICF_TEXT_MAX_CHARS}
+
+
+# Reasoning caps: each output template states a word limit; the schema enforces it at
+# REASONING_CHARS_PER_WORD characters per word (English averages ~6 including the space), which
+# leaves ample headroom for compliant answers and stops greedy loops (seen in allocation).
+REASONING_CHARS_PER_WORD = 10
+REASONING_WORDS = {"rating": 150, "allocation": 250, "tiebreak": 200}
+FIT_ISSUE_MAX_CHARS = 500
+
+
+def reasoning(kind):
+    return {"type": "string", "maxLength": REASONING_WORDS[kind] * REASONING_CHARS_PER_WORD}
+
+
+def fit_issue():
+    return {"anyOf": [{"type": "string", "maxLength": FIT_ISSUE_MAX_CHARS}, {"type": "null"}]}
 
 
 def enum(values, kind="string"):
@@ -74,10 +87,6 @@ def array(items, max_items=None, min_items=None):
     if max_items is not None:
         value["maxItems"] = max_items
     return value
-
-
-def nullable_string():
-    return {"anyOf": [{"type": "string"}, {"type": "null"}]}
 
 
 def qualified_field():
@@ -194,8 +203,8 @@ def icf_schema():
 def label_schema():
     return obj(
         {
-            "reasoning": string(),
-            "fit_issue": nullable_string(),
+            "reasoning": reasoning("rating"),
+            "fit_issue": fit_issue(),
             "class": enum(classes_config()["ids"], "integer"),
         }
     )
@@ -205,8 +214,8 @@ def distribution_schema():
     ids = [str(i) for i in classes_config()["ids"]]
     return obj(
         {
-            "reasoning": string(),
-            "fit_issue": nullable_string(),
+            "reasoning": reasoning("rating"),
+            "fit_issue": fit_issue(),
             "probabilities": obj(
                 {i: {"type": "number", "minimum": 0, "maximum": 1} for i in ids}
             ),
@@ -218,8 +227,8 @@ def score_schema():
     c = classes_config()
     return obj(
         {
-            "reasoning": string(),
-            "fit_issue": nullable_string(),
+            "reasoning": reasoning("rating"),
+            "fit_issue": fit_issue(),
             "complexity_score": {"type": "number", "minimum": c["min"], "maximum": c["max"]},
         }
     )
@@ -229,7 +238,7 @@ def allocation_schema(client_ids, clinician_ids):
     n = len(client_ids)
     return obj(
         {
-            "reasoning": string(),
+            "reasoning": reasoning("allocation"),
             "assignment": array(
                 obj(
                     {
@@ -245,7 +254,7 @@ def allocation_schema(client_ids, clinician_ids):
 
 
 def tiebreak_schema(k):
-    return obj({"reasoning": string(), "chosen_candidate": enum(range(1, k + 1), "integer")})
+    return obj({"reasoning": reasoning("tiebreak"), "chosen_candidate": enum(range(1, k + 1), "integer")})
 
 
 STATIC = {
@@ -287,8 +296,8 @@ def validate(value, schema, path="$"):
         errors.append(f"{path}: longer than {schema['maxLength']} characters")
     if "enum" in schema and value not in schema["enum"]:
         errors.append(f"{path}: {value!r} not in {schema['enum']}")
-    if kind == "number" or kind == "integer":
-        if value != value or value in (float("inf"), float("-inf")):
+    if kind in ("number", "integer"):
+        if not math.isfinite(value):
             errors.append(f"{path}: non-finite number")
         if "minimum" in schema and value < schema["minimum"]:
             errors.append(f"{path}: {value} < minimum {schema['minimum']}")

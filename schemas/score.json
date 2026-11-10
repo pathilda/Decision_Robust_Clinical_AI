@@ -2,12 +2,14 @@
   "type": "object",
   "properties": {
     "reasoning": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 1500
     },
     "fit_issue": {
       "anyOf": [
         {
-          "type": "string"
+          "type": "string",
+          "maxLength": 500
         },
         {
           "type": "null"

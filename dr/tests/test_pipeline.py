@@ -112,7 +112,7 @@ def gurobi_available():
         env.start()
         env.dispose()
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - any Gurobi failure means 'unavailable'
         return False
 
 

@@ -40,7 +40,7 @@ def test_schema_files_match_builders():
         assert on_disk == builder(), name
     assert list(schemas.load("icf")["properties"])[-1] == "summary"
     for name in ("label", "distribution", "score"):
-        assert list(schemas.load(name)["properties"])[0] == "reasoning"
+        assert next(iter(schemas.load(name)["properties"])) == "reasoning"
 
 
 def test_fill_rejects_missing_and_unused_placeholders():
@@ -132,6 +132,10 @@ def test_class_scores_only_for_score_output():
     for kind in ("label", "distribution", "score", "allocation"):
         assert "Class 1:\n- Client with mild/moderate needs in 1 area" in system_prompt(kind)
         assert "- Typical therapy plan: joint, team or 1:1 (often team/joint)" in system_prompt(kind)
+        # Null abbreviations are placeholders and never reach a prompt.
+        assert "Abbreviations: HCP = health care provider." in system_prompt(kind)
+        assert "None" not in system_prompt(kind) and "KA =" not in system_prompt(kind)
+        assert "receptive and expressive language) mean needs in multiple domains" in system_prompt(kind)
 
 
 def test_no_formulas_at_rung5_anywhere():
@@ -169,7 +173,7 @@ def test_make_chunks_merges_small_remainder():
     ids = [f"c{i:03d}" for i in range(45)]
     groups = make_chunks(ids, 20, 42, 10)
     assert [len(g) for g in groups] == [20, 25]
-    assert sorted(sum(groups, [])) == ids
+    assert sorted(c for g in groups for c in g) == ids
     assert [len(g) for g in make_chunks(ids[:30], 20, 42, 10)] == [20, 10]
     assert make_chunks(ids, 20, 42, 10) == groups  # deterministic
 

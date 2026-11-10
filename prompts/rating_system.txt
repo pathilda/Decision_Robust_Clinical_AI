@@ -10,7 +10,7 @@ COMPLEXITY CLASSES
 {CLASS_DEFINITIONS}
 
 HOW TO APPLY THE CLASSES
-- Count areas of need from the body functions. Receptive and expressive language count as two areas; speech production, fluency and voice count separately.
+- Count areas of need from the body functions. Each body function is its own area (also called a domain): receptive and expressive language are two areas, and speech production, fluency and voice count separately. "Needs in 1 area" means exactly one area of need; two or more areas (for example receptive and expressive language) mean needs in multiple domains.
 - Base your judgment on what is documented as known or queried. Treat "may" in a class definition as optional, and require documented evidence for barriers, limitations and impacted caregiver capacity.
 - If the child does not fit any class exactly, choose the closest class and name the criterion that does not fit in "fit_issue". Otherwise set "fit_issue" to null.
 

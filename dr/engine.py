@@ -91,7 +91,7 @@ class VLLMEngine:
         from vllm import LLM
 
         self.multimodal = is_multimodal(path)
-        kwargs = dict(
+        kwargs = dict(  # noqa: C408 - keyword form mirrors the vLLM LLM() signature
             model=str(path),
             tokenizer=str(path),
             dtype=self.serving["dtype"],
@@ -309,8 +309,8 @@ def run_requests(engine, requests, store, revision, batch_size=512, seed=None):
                 records.append(
                     _record(request, revision, prompt_tokens=tokens, skipped=True,
                             skipped_reason="prompt_too_long",
-                            errors=[f"prompt {tokens} + max_new_tokens {request.max_tokens} "
-                                    f"> max_model_len {engine.max_model_len}"])
+                            errors=[(f"prompt {tokens} + max_new_tokens {request.max_tokens} "
+                                     f"> max_model_len {engine.max_model_len}")])
                 )
                 summary["prompt_too_long"] += 1
                 continue

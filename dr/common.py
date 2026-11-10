@@ -148,7 +148,7 @@ def apply_gurobi_license(args):
 def read_yaml(path):
     value = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise ValueError(f"Expected a mapping in {path}")
+        raise ValueError(f"Expected a mapping in {path}")  # noqa: TRY004 - bad config content
     return value
 
 
@@ -167,6 +167,8 @@ def classes_config():
         "scores": {int(c["id"]): float(c["score"]) for c in classes},
         "definitions": {int(c["id"]): list(c["definition"]) for c in classes},
         "therapy_plans": {int(c["id"]): c.get("typical_therapy_plan") for c in classes},
+        # Unfilled (null) abbreviations are placeholders and are not rendered.
+        "abbreviations": {k: v for k, v in (raw.get("abbreviations") or {}).items() if v},
         "min": min(scores),
         "max": max(scores),
         "sha256": file_sha256(CONFIG_DIR / "classes.yaml"),

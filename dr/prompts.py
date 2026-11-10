@@ -45,6 +45,9 @@ def class_definitions():
         lines.extend(f"- {bullet}" for bullet in cfg["definitions"][cid])
         if cfg["therapy_plans"][cid]:
             lines.append(f"- Typical therapy plan: {cfg['therapy_plans'][cid]}")
+    if cfg["abbreviations"]:
+        listing = ", ".join(f"{k} = {v}" for k, v in cfg["abbreviations"].items())
+        lines.append(f"Abbreviations: {listing}.")
     return "\n".join(lines)
 
 

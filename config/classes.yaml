@@ -4,6 +4,14 @@
 # (Description + Typical Therapy Plan); only spreadsheet quoting artifacts were removed.
 schema_version: 2
 
+# Abbreviations used in the class table. Entries left as null are placeholders: they are NOT
+# rendered into prompts until filled in. Filling one changes every rating, allocation and
+# tie-break prompt (new prompt hashes), so fill them before the full run.
+abbreviations:
+  KA: null   # placeholder: expansion pending from the clinical team
+  HP: null   # placeholder: expansion pending from the clinical team
+  HCP: "health care provider"
+
 classes:
   - id: 1
     score: 1.0
