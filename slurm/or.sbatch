@@ -1,8 +1,8 @@
 #!/bin/bash
 # OR candidate pools (step 5) on one Trillium CPU node (192 cores); no GPU, no LLM.
 # Every (model, rung, source, profile) runs as its own single-threaded process in parallel.
-# Gurobi: the size-limited license bundled with `pip install gurobipy` is enough (each model
-# has a few hundred variables) and works offline on compute nodes; no license file is needed.
+# Gurobi: gurobipy uses the license it finds (GRB_LICENSE_FILE, else ~/gurobi.lic). Check first
+# that it works on a compute node with this many sessions: slurm/gurobi_check.sbatch.
 # Submit from the CPU login node (tri-login01), from the repository root:
 #
 #   sbatch --output=$SCRATCH/dr_logs/%x-%j.out slurm/or.sbatch <OUTPUTS_DIR> <DATA_DIR> \
@@ -19,7 +19,6 @@ set -uo pipefail
 OUTPUTS="$1"; DATA="$2"; shift 2
 module load python/3.11.5
 export PYTHONDONTWRITEBYTECODE=1
-unset GRB_LICENSE_FILE   # use the bundled size-limited license, not a machine-locked one
 cd "$SLURM_SUBMIT_DIR"
 LOGS="$SCRATCH/dr_logs/or-$SLURM_JOB_ID"
 mkdir -p "$LOGS"
