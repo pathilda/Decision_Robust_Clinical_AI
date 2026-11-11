@@ -12,6 +12,7 @@ Reused, unchanged:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Decimal
 
 from patient_assignment import experiment_solver as solver
@@ -133,16 +134,39 @@ def argmax_class(probabilities):
 
 
 # ----------------------------------------------------------------------------- solving
+@dataclass(frozen=True)
+class StudySettings(proxy_solver.ProxySettings):
+    """Existing proxy settings with Gurobi's absolute gap matched to the study tolerance.
+
+    The existing settings force MIPGapAbs = 0, so Gurobi keeps proving optimality far below the
+    certification tolerance. Here Gurobi stops once incumbent and bound are within half of
+    ``optimality_tolerance`` (study.yaml), so certification at that tolerance always passes.
+    """
+
+    mip_gap_abs: float = 0.0
+
+    def validate(self):
+        super().validate()
+        if not 0 <= self.mip_gap_abs <= 0.1:
+            raise ValueError("optimality_tolerance must be in [0, 0.1]")
+
+    def parameters(self):
+        return {**super().parameters(), "MIPGapAbs": self.mip_gap_abs}
+
+
 class Solver:
     """One lazily started Gurobi session reused for every solve of a command."""
 
     def __init__(self):
         opt = optimization_settings()
         self.tolerance = float(opt["optimality_tolerance"])
-        self.settings = proxy_solver.ProxySettings(
+        self.settings = StudySettings(
             time_limit=opt.get("time_limit"),
             threads=int(opt["threads"]),
             seed=int(opt["solver_seed"]),
+            # Half the certification tolerance: the existing code re-checks recomputed objectives
+            # against the bound, and a gap of exactly the tolerance fails on rounding.
+            mip_gap_abs=self.tolerance / 2,
         )
         self.settings.validate()
         self.opt = opt

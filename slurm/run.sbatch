@@ -1,25 +1,35 @@
 #!/bin/bash
-# One job = one model loaded once (spec 12.1). Every directory is passed on the command line:
+# One job = one model loaded once (spec 12.1). Written for Trillium (Alliance) GPU nodes.
+# Submit from the GPU login node (trig-login01), from the repository root. $HOME is read-only on
+# compute nodes, so the log goes to scratch: pass --output on the command line, e.g.
 #
-#   sbatch --job-name=icf-qwen35-27b slurm/run.sbatch qwen35-27b --steps icf \
-#     --models-dir /project/me/models --data-dir /project/me/dr_study/data \
-#     --outputs-dir /project/me/dr_study/outputs
+#   mkdir -p $SCRATCH/dr_logs
+#   sbatch --job-name=rate-qwen35-27b --output=$SCRATCH/dr_logs/%x-%j.out slurm/run.sbatch \
+#     qwen35-27b --steps rating allocation --batch-size 64 --models-dir $SCRATCH/Models \
+#     --data-dir /path/to/data --outputs-dir $SCRATCH/dr_outputs
 #
-# Optional: --gurobi-license /path/gurobi.lic (candidates step). Submit from the repository
-# root; create logs/ there first. Fill in the <...> placeholders below.
-#SBATCH --account=<existing account>
-#SBATCH --gpus-per-node=h100:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=96G
+# Optional: --gurobi-license /path/gurobi.lic (candidates step). Runs are resumable: if a job
+# hits the 24 h limit, resubmit the same command and finished records are skipped.
+#SBATCH --account=def-abouee
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=1
 #SBATCH --time=24:00:00
 #SBATCH --job-name=dr
-#SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
-module load <existing modules>
-source <existing venv>/bin/activate
+module load python/3.11.5
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
+
+# Every cache that vLLM / Triton / torch.compile writes must live on scratch ($HOME is read-only).
+CACHE_ROOT="$SCRATCH/.cache/dr"
+export XDG_CACHE_HOME="$CACHE_ROOT"
+export HF_HOME="$CACHE_ROOT/huggingface"
+export VLLM_CACHE_ROOT="$CACHE_ROOT/vllm"
+export TRITON_CACHE_DIR="$CACHE_ROOT/triton"
+export TORCHINDUCTOR_CACHE_DIR="$CACHE_ROOT/torchinductor"
+export PYTHONDONTWRITEBYTECODE=1
+mkdir -p "$HF_HOME" "$VLLM_CACHE_ROOT" "$TRITON_CACHE_DIR" "$TORCHINDUCTOR_CACHE_DIR"
 
 cd "$SLURM_SUBMIT_DIR"
 python -m dr.run_model --model "$1" "${@:2}"

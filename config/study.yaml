@@ -15,7 +15,10 @@ optimization:
   objective: complexity-range
   n_seeds: 20
   sample_seed: 42                      # existing default: selection seeds 42, 43, ..., 42+n-1
-  optimality_tolerance: 1.0e-7         # existing proxy-analysis default
+  # Absolute optimality tolerance on the objective (caseload-complexity range). The existing
+  # default 1e-7 made each 20-seed pool take minutes; 0.01 is 1/20 of one class-score step (0.2).
+  # It is used both as Gurobi's MIPGapAbs and as the certification tolerance.
+  optimality_tolerance: 0.01
   solver_seed: 0
   threads: 1
   time_limit: null
