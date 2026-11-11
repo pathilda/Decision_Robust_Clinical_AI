@@ -24,8 +24,10 @@ def read_chunks(ws):
     frame["client_id"] = frame["client_id"].map(normalize_id)
     frame["chunk_id"] = frame["chunk_id"].map(normalize_id)
     frame["position"] = frame["position"].astype(int)
-    if frame["client_id"].duplicated().any():
-        raise ValueError("chunks.xlsx lists a client more than once")
+    # A client may appear in several chunks (labelled chunks are sampled with replacement
+    # across chunks; result keys are "<chunk>|<client>"), but never twice in one chunk.
+    if frame.duplicated(["chunk_id", "client_id"]).any():
+        raise ValueError("chunks.xlsx lists a client more than once in the same chunk")
     chunks = {}
     for chunk_id, group in frame.groupby("chunk_id", sort=False):
         group = group.sort_values("position")

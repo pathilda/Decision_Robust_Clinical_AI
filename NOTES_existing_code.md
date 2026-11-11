@@ -78,6 +78,19 @@ to `prompts/block_formulation.txt`, and to `dr/or_bridge.check_allocation`.
    domains". `classes.yaml` has an `abbreviations` map: HCP is filled in; KA and HP are null
    placeholders and are not rendered until the clinical team supplies their expansions
    (filling one changes every non-ICF prompt hash).
+9. **OR tolerance and time limit.** The existing settings (absolute tolerance 1e-7, Gurobi
+   MIPGap/MIPGapAbs 0, no time limit) made one 20-seed pool take minutes or more.
+   `study.yaml` now sets `optimality_tolerance: 0.01` (1/20 of one class-score step) and
+   `time_limit: 600` s per solve. `dr.or_bridge.StudySettings` sets Gurobi's `MIPGapAbs` to half
+   the tolerance (so the existing certification at the full tolerance passes despite rounding);
+   the existing code is unchanged. A solve that hits the time limit is saved as a pool with
+   status `solve_failed` and reported.
+10. **Clinician-labelled chunks.** `dr.label_chunks` builds class-stratified chunks (default
+   5 x 20, IDs L1..L5) from labelled clients that have an ICF profile from every model, sampled
+   with replacement across chunks (never twice within a chunk; least-used clients first).
+   `chunks.xlsx` may therefore list a client in several chunks; result keys are
+   `<chunk>|<client>`. The labelled study uses its own data and outputs directories, with the
+   main study's ICF files linked in, and is evaluated against the clinician classes.
 
 ## ICF summary recomputation rules (`dr/icf_profile.recompute_summary`)
 

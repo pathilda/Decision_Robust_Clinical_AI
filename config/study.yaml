@@ -21,7 +21,9 @@ optimization:
   optimality_tolerance: 0.01
   solver_seed: 0
   threads: 1
-  time_limit: null
+  # Seconds per Gurobi solve. A pool whose solve hits it is saved as status "solve_failed"
+  # (reported, not hidden); rerun those with a longer limit if needed.
+  time_limit: 600
   # Stochastic (SAA) model for the distribution output; existing default first grid values.
   scenario_count: 20
   scenario_seed: 42
