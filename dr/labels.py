@@ -4,11 +4,11 @@
 
 Prints:
 1. File checks: rows, unique clients, duplicate / blank IDs, missing classes or confidences.
-2. Class distribution (counts and %), and any value that is not a configured class.
-3. Confidence distribution (counts and %; summary statistics when numeric).
-4. Class x confidence table.
+2-4. All labelled clients: class distribution (counts and %), confidence distribution (counts
+   and %; summary statistics when numeric) and the class x confidence table.
 5. ICF coverage: for each model, how many labelled clients have a successful ICF profile,
    a failed one, or none; how many have one for all models.
+6-8. The same three tables for the overlap: clients with a successful ICF from every model.
 
 Writes <outputs-dir>/labels/label_coverage.csv (one row per labelled client: ID, class,
 confidence, ICF status per model). Clinical text columns are never read into the outputs.
@@ -52,18 +52,24 @@ def blank(value):
 
 
 def as_class(value):
-    try:
-        number = float(str(value).strip())
-    except ValueError:
-        return None
-    return int(number) if number.is_integer() else None
+    """4, 4.0, "4" or "Class 4" -> 4; anything else -> None."""
+    match = re.fullmatch(r"(?:class\s*)?(\d+(?:\.0+)?)", str(value).strip(), re.IGNORECASE)
+    return int(float(match.group(1))) if match else None
 
 
-def distribution(series, order=None):
+CONFIDENCE_ORDER = ("very low", "low", "mid", "medium", "moderate", "high", "very high")
+
+
+def confidence_rank(value):
+    """Order text confidences low -> high ("Low Confidence" < "Mid Confidence" < ...)."""
+    text = re.sub(r"\s*confidence\s*", " ", str(value), flags=re.IGNORECASE).strip().lower()
+    return (CONFIDENCE_ORDER.index(text), "") if text in CONFIDENCE_ORDER else (99, str(value))
+
+
+def distribution(series, order):
+    """Counts and % in ``order``; levels with no clients are shown as 0."""
     counts = series.value_counts(dropna=False)
-    if order is not None:
-        counts = counts.reindex([v for v in order if v in counts.index]
-                                + [v for v in counts.index if v not in order])
+    counts = counts.reindex(list(order) + [v for v in counts.index if v not in order], fill_value=0)
     total = int(counts.sum())
     return pd.DataFrame({"n": counts, "pct": (100 * counts / total).round(1) if total else counts})
 
@@ -84,6 +90,54 @@ def icf_status(ws, model, ids):
 
 def section(title):
     print(f"\n{'=' * 70}\n{title}\n{'=' * 70}")
+
+
+def class_names(labels):
+    valid = set(classes_config()["ids"])
+    return labels["class"].where(labels["class"].isin(valid)).map(
+        lambda v: "missing/invalid" if pd.isna(v) else f"Class {int(v)}").rename("class")
+
+
+def levels(labels):
+    """Display order of classes and confidences, fixed from the full label set so the overlap
+    tables list the same rows and columns (zeros included)."""
+    classes = [f"Class {i}" for i in sorted(classes_config()["ids"])]
+    if (class_names(labels) == "missing/invalid").any():
+        classes.append("missing/invalid")
+    values = labels["confidence"].dropna().unique()
+    numeric = pd.to_numeric(pd.Series(values), errors="coerce").notna().all() and len(values)
+    confidences = sorted(values, key=float if numeric else confidence_rank)
+    if labels["confidence"].isna().any():
+        confidences.append("missing")
+    return classes, [str(c) for c in confidences], bool(numeric)
+
+
+def describe(labels, title, first_number, order):
+    """Class distribution, confidence distribution and class x confidence for ``labels``."""
+    class_order, confidence_order, numeric_confidence = order
+    classes = class_names(labels)
+    confidence = labels["confidence"].fillna("missing").astype(str).rename("confidence")
+    n = first_number
+
+    section(f"{n}. CLASS DISTRIBUTION - {title}")
+    print(distribution(classes, class_order).to_string())
+
+    section(f"{n + 1}. CONFIDENCE DISTRIBUTION - {title}")
+    print(distribution(confidence, confidence_order).to_string())
+    numeric = pd.to_numeric(labels["confidence"], errors="coerce")
+    if numeric_confidence and numeric.notna().any():
+        stats = numeric.describe()
+        print(f"\nnumeric: mean {stats['mean']:.2f}, median {numeric.median():.2f}, "
+              f"min {stats['min']:g}, max {stats['max']:g}, sd {stats['std']:.2f}")
+        print("\nmean confidence by class:")
+        print(numeric.groupby(classes).agg(["count", "mean"]).round(2).to_string())
+
+    section(f"{n + 2}. CLASS x CONFIDENCE (counts) - {title}")
+    table = pd.crosstab(classes, confidence).reindex(
+        index=class_order, columns=confidence_order, fill_value=0)
+    table.loc["total"] = table.sum()
+    table["total"] = table.sum(axis=1)
+    print(table.to_string())
 
 
 def main(argv=None):
@@ -130,31 +184,8 @@ def main(argv=None):
         print(f"Class values that are not classes {sorted(valid)}: "
               f"{bad_class[class_col].astype(str).tolist()}")
 
-    # ------------------------------------------------------------------ 2. classes
-    section("2. CLASS DISTRIBUTION")
-    classes = labels["class"].where(labels["class"].isin(valid)).map(
-        lambda v: "missing/invalid" if pd.isna(v) else f"Class {int(v)}")
-    order = [f"Class {i}" for i in sorted(valid)] + ["missing/invalid"]
-    print(distribution(classes, order).to_string())
-
-    # ------------------------------------------------------------------ 3. confidence
-    section("3. CONFIDENCE DISTRIBUTION")
-    confidence = labels["confidence"].fillna("missing")
-    numeric = pd.to_numeric(labels["confidence"], errors="coerce")
-    if numeric.notna().any() and numeric.notna().sum() == labels["confidence"].notna().sum():
-        order = [str(v) for v in sorted(labels["confidence"].dropna().unique(), key=float)]
-        print(distribution(confidence, order + ["missing"]).to_string())
-        stats = numeric.describe()
-        print(f"\nnumeric: mean {stats['mean']:.2f}, median {numeric.median():.2f}, "
-              f"min {stats['min']:g}, max {stats['max']:g}, sd {stats['std']:.2f}")
-        print("\nmean confidence by class:")
-        print(numeric.groupby(classes).agg(["count", "mean"]).round(2).to_string())
-    else:
-        print(distribution(confidence).to_string())
-
-    # ------------------------------------------------------------------ 4. cross-tab
-    section("4. CLASS x CONFIDENCE (counts)")
-    print(pd.crosstab(classes, confidence, margins=True, margins_name="total").to_string())
+    order = levels(labels)
+    describe(labels, "ALL LABELLED CLIENTS", 2, order)
 
     # ------------------------------------------------------------------ 5. ICF coverage
     section("5. ICF COVERAGE OF LABELLED CLIENTS")
@@ -177,7 +208,11 @@ def main(argv=None):
         print(f"\nICF ok for all {len(have)} models: {int(all_ok.sum())} / {len(ids)}")
         print("by class:")
         status = all_ok.map({True: "ICF all models", False: "missing"}).rename("icf")
-        print(pd.crosstab(classes, status, margins=True, margins_name="total").to_string())
+        print(pd.crosstab(class_names(labels), status, margins=True,
+                          margins_name="total").to_string())
+        overlap = labels[all_ok.to_numpy()].reset_index(drop=True)
+        describe(overlap, f"CLIENTS WITH ICF FROM ALL {len(have)} MODELS (n={len(overlap)})", 6,
+                 order)
 
     out = ws.outputs / "labels" / "label_coverage.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
