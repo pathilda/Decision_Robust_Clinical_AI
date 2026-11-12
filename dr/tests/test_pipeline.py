@@ -12,6 +12,7 @@ from dr.chunks import main as chunks_main
 from dr.common import JsonlStore, Workspace
 from dr.engine import FakeEngine, ParseError, Request, run_requests
 from dr.fixtures import synthetic_profile
+from dr.or_bridge import selection_seeds
 
 GOOD = json.dumps({"reasoning": "r", "fit_issue": None, "class": 2})
 
@@ -166,8 +167,10 @@ def test_end_to_end_synthetic(workspace):
     counts = candidates.run(workspace, model, [4, 5], ["label", "distribution", "score"], profiles)
     assert counts["failed"] == 0 and counts["written"] == 12
     pool = json.loads(workspace.candidates(model, 4, "distribution", "balanced", "1").read_text())
-    assert pool["status"] == "ok" and pool["policy"] == "stochastic" and pool["n_runs"] == 20
-    assert [s["seed"] for s in pool["solutions"]] == list(range(42, 62))
+    seeds = selection_seeds()  # study.yaml: sample_seed .. sample_seed + n_seeds - 1
+    assert pool["status"] == "ok" and pool["policy"] == "stochastic"
+    assert pool["n_runs"] == len(seeds) and pool["scenario_count"] == 10
+    assert [s["seed"] for s in pool["solutions"]] == seeds
     assert len({json.dumps(c["canonical"]) for c in pool["candidates"]}) == pool["n_distinct"]
     again = candidates.run(workspace, model, [4, 5], ["label", "distribution", "score"], profiles)
     assert again["reused"] == 12 and again["written"] == 0
@@ -188,7 +191,7 @@ def test_end_to_end_synthetic(workspace):
                           "--outputs-dir", str(workspace.outputs)]) == 0
     out = workspace.outputs / "evaluation" / f"{model}_1_label"
     or_rows = pd.read_csv(out / "or_rows.csv")
-    assert (or_rows["proxy_regret"] >= -1e-7).all() and len(or_rows) == 12 * 20
+    assert (or_rows["proxy_regret"] >= -1e-7).all() and len(or_rows) == 12 * len(seeds)
     tb = pd.read_csv(out / "tiebreak_rows.csv")
     ok = tb[tb.parse_ok]
     assert (ok.best_candidate_regret <= ok.proxy_regret + 1e-9).all()

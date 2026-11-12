@@ -1,9 +1,10 @@
 """Step 5: OR candidate pools from ratings with the existing seeded solves (spec Section 7.1).
 
     python -m dr.candidates --model <key> --rung <4|5|6> --source <label|distribution|score> \
-        --profile <...|all> --seeds 20
+        --profile <...|all>
 
-For each chunk and load profile, the existing OR model is solved for 20 selection seeds
+For each chunk and load profile, the existing OR model is solved for n_seeds selection seeds
+(study.yaml)
 (deterministic model for label/score, stochastic SAA model for distribution), duplicates are
 removed (canonical form: sorted (client_id, clinician_id) pairs) and the pool is saved with
 the seed and objective value of every solution. Rungs 1-3 are accepted too: their pools are
@@ -204,7 +205,7 @@ def main(argv=None):
                    required=True)
     p.add_argument("--profile", "--profiles", dest="profiles", nargs="+", required=True,
                    choices=["balanced", "unbalanced", "highly_unbalanced", "all"])
-    p.add_argument("--seeds", type=int, default=None, help="Must equal study.yaml n_seeds (20)")
+    p.add_argument("--seeds", type=int, default=None, help="Optional check: must equal study.yaml n_seeds")
     p.add_argument("--chunk-ids", nargs="+", default=None)
     add_workspace_argument(p)
     add_gurobi_argument(p)

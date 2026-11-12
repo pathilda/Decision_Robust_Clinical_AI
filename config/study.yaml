@@ -13,7 +13,9 @@ optimization:
   # Existing proxy-analysis default objective: minimize max - min final caseload complexity.
   # It is the formulation shown at rung 6; the lexicographic variant is not supported here.
   objective: complexity-range
-  n_seeds: 20
+  # Seeded optimal solutions per pool (all sources). Was 20; reduced to 10 because distribution
+  # pools hit the per-solve time limit (labelled pilot, 2026-11-11).
+  n_seeds: 10
   sample_seed: 42                      # existing default: selection seeds 42, 43, ..., 42+n-1
   # Absolute optimality tolerance on the objective (caseload-complexity range). The existing
   # default 1e-7 made each 20-seed pool take minutes; 0.01 is 1/20 of one class-score step (0.2).
@@ -24,8 +26,9 @@ optimization:
   # Seconds per Gurobi solve. A pool whose solve hits it is saved as status "solve_failed"
   # (reported, not hidden); rerun those with a longer limit if needed.
   time_limit: 600
-  # Stochastic (SAA) model for the distribution output; existing default first grid values.
-  scenario_count: 20
+  # Stochastic (SAA) model for the distribution output. Existing default 20 scenarios; reduced to
+  # 10 for the same reason as n_seeds. Seed and temperature are the existing defaults.
+  scenario_count: 10
   scenario_seed: 42
   temperature: 1.0
 

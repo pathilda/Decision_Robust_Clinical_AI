@@ -22,7 +22,7 @@ Written for spec Section 12, step 1. The `dr/` package wraps this code and does 
 
 Existing seeding: selection seeds `sample_seed .. sample_seed + n - 1` (default `sample_seed` 42),
 reference allocation seed 1001, Gurobi algorithm seed 0, absolute certification tolerance 1e-7.
-SAA defaults: the first values of the existing grid (20 scenarios, scenario seed 42, temperature 1).
+SAA settings: 10 scenarios (existing default 20; see deviation 9), scenario seed 42, temperature 1.
 The scenario stream is keyed by (model, chunk), as in the existing code, so all rungs share
 common random numbers.
 
@@ -84,7 +84,9 @@ to `prompts/block_formulation.txt`, and to `dr/or_bridge.check_allocation`.
    `time_limit: 600` s per solve. `dr.or_bridge.StudySettings` sets Gurobi's `MIPGapAbs` to half
    the tolerance (so the existing certification at the full tolerance passes despite rounding);
    the existing code is unchanged. A solve that hits the time limit is saved as a pool with
-   status `solve_failed` and reported.
+   status `solve_failed` and reported. In the labelled pilot, label and score pools all solved
+   within minutes, but most distribution pools hit the limit, so `n_seeds` (all sources) and
+   `scenario_count` (SAA) were both reduced from 20 to 10.
 10. **Clinician-labelled chunks.** `dr.label_chunks` builds class-stratified chunks (default
    5 x 20, IDs L1..L5) from labelled clients that have an ICF profile from every model, sampled
    with replacement across chunks (never twice within a chunk; least-used clients first).
