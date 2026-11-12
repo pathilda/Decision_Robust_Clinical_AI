@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clinician-Labelled Pilot</title>
+<title>LLM Assessments and Decisions</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
 <style>
@@ -43,7 +43,8 @@ html, body { background: var(--bg); }
 .synthetic-banner { position: fixed; top: 10px; right: 14px; z-index: 50; background: #fff1e6; color: #8a3b12; border: 1px solid #f0b48f; border-radius: 8px; padding: 6px 12px; font: 600 14px "Segoe UI", sans-serif; }
 
 /* title */
-.title-slide { padding-top: 120px; }
+.title-slide { padding-top: 250px; box-sizing: border-box; }
+.title-slide h1 { font-size: 66px; max-width: 1400px; }
 .title-slide .eyebrow { color: var(--teal); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 20px; margin-bottom: 18px; }
 .title-slide .subtitle { font-size: 30px; color: var(--ink-2); margin: 0 0 46px; max-width: 1250px; }
 .title-strip { display: flex; gap: 14px; flex-wrap: wrap; }
@@ -127,10 +128,10 @@ html, body { background: var(--bg); }
 
 /* plots + controls */
 .plot { width: 100%; background: transparent; }
-.ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+.ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; }
 .ctl .lbl { font-size: 15px; color: var(--ink-2); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
-.ctl .sep { width: 1px; height: 26px; background: var(--line); margin: 0 10px; }
-.ctl button { font: 600 16px "Segoe UI", sans-serif; border: 1px solid #bacde5; border-radius: 8px; padding: 6px 12px; background: white; color: var(--accent); cursor: pointer; }
+.ctl .sep { width: 1px; height: 26px; background: var(--line); margin: 0 6px; }
+.ctl button { font: 600 15px "Segoe UI", sans-serif; border: 1px solid #bacde5; border-radius: 8px; padding: 5px 10px; background: white; color: var(--accent); cursor: pointer; }
 .ctl button[aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
 .view-tag { display: inline-block; font-size: 15px; font-weight: 700; color: white; background: var(--teal); border-radius: 6px; padding: 2px 9px; margin-right: 8px; vertical-align: 3px; letter-spacing: .04em; }
 .lede { font-size: 19px; color: var(--ink-2); margin: -10px 0 10px; }
@@ -183,10 +184,8 @@ html, body { background: var(--bg); }
 
 <!-- 1. Title -->
 <section class="title-slide">
-  <div class="eyebrow">Decision-robust clinical AI · clinician-labelled pilot</div>
-  <h1>From clinical notes to caseload decisions</h1>
-  <p class="subtitle">How the information an LLM sees, and the form of its answer, change the quality of the operational decision that follows.</p>
-  <div class="title-strip" id="title-chips"></div>
+  <h1>When Do LLM-Based Assessments Support Good Operational Decisions?</h1>
+  <p class="subtitle">A Discussion of Accuracy, Performance, and Robustness</p>
 </section>
 
 <!-- 2. Framework -->
@@ -198,7 +197,7 @@ html, body { background: var(--bg); }
     <div class="node green" data-key="icf"><b>ICF profile</b><span>structured, evidence-quoted (LLM)</span></div>
     <div class="arrow">&#8594;</div>
     <div class="coupled">
-      <div class="node green" data-key="assess"><b>LLM assessment</b><span>class · distribution · score</span></div>
+      <div class="node green" data-key="assess"><b>LLM assessment</b><span id="assess-sub">class · distribution · score</span></div>
       <div class="arrow">&#8594;</div>
       <div class="node green" data-key="or"><b>Decision model</b><span>balance caseload complexity (OR)</span></div>
       <div class="coupled-caption">The coupled system we vary: context rung × output format</div>
@@ -241,40 +240,6 @@ html, body { background: var(--bg); }
   </div>
 </section>
 
-<!-- 4. ICF extraction -->
-<section>
-  <h2><span class="kicker">Step 1 · ICF</span>From notes to a structured ICF profile</h2>
-  <div class="extract">
-    <div class="card">
-      <h3>Input</h3>
-      <ul><li>Pre-treatment notes of one child: <strong>service-planning</strong> and <strong>assessment</strong> text</li>
-        <li>Prompt: an experienced pediatric SLP documents the child in the ICF (children &amp; youth)</li>
-        <li>The model <strong>describes</strong>; it does not diagnose, predict or assign a class</li></ul>
-    </div>
-    <div class="card">
-      <h3>Rules</h3>
-      <p style="font-size:18px;margin:0 0 4px">Every field gets a status:</p>
-      <div class="status-row"><span class="status s-known">known</span><span class="status s-queried">queried</span><span class="status s-noconcern">no concern</span><span class="status s-nd">not documented</span></div>
-      <ul><li><strong>Silence &#8800; no problem</strong>: undocumented stays “not documented”</li>
-        <li>Severity mapped to the qualifier; ranges take the higher value</li>
-        <li>Short verbatim <strong>evidence quote</strong> for every non-empty field</li>
-        <li>Summary fields recomputed by deterministic rules</li></ul>
-    </div>
-    <div class="card">
-      <h3>Output <span class="illustrative">· illustrative, not a real client</span></h3>
-      <div class="profile-row"><span>Expressive language</span><span class="status s-known">known</span><span class="qchip">2</span><i>“uses 2–3 word phrases at home”</i></div>
-      <div class="profile-row"><span>Receptive language</span><span class="status s-known">known</span><span class="qchip">1</span></div>
-      <div class="profile-row"><span>Speech sound production</span><span class="status s-queried">queried</span><span class="qchip">8</span></div>
-      <div class="profile-row"><span>Fluency</span><span class="status s-noconcern">no concern</span><span class="qchip">0</span></div>
-      <div class="profile-row"><span>Participation · childcare</span><span class="status s-known">known</span><span class="qchip">2</span></div>
-      <div class="profile-row"><span>Caregiver capacity</span><span class="status s-known">known</span><span class="qchip">barrier 2</span></div>
-      <div class="profile-row"><span>Other professionals</span><span class="status s-known">known</span><span class="qchip">OT</span></div>
-      <div class="profile-row"><span>Developmental factors</span><span class="status s-queried">queried</span><span class="qchip">motor</span></div>
-    </div>
-  </div>
-  <div class="statement teal" style="margin-top:18px"><p style="margin:0;font-size:20px">The ICF step never sees the complexity classes. Each model rates from <strong>its own ICF profiles</strong>, and the same profile feeds every configuration in the matrix.</p></div>
-</section>
-
 <!-- 5. Classes -->
 <section>
   <h2><span class="kicker">The target</span>Five complexity classes</h2>
@@ -293,22 +258,6 @@ html, body { background: var(--bg); }
   <div class="cols c37">
     <div><div class="plot" id="plot-class" style="height:540px"></div></div>
     <div><div class="plot" id="plot-conf" style="height:540px"></div></div>
-  </div>
-</section>
-
-<!-- 7. Labels detail and test chunks -->
-<section>
-  <h2><span class="kicker">Test set</span>Label confidence and the test chunks</h2>
-  <div class="cols c2">
-    <div>
-      <div class="ctl" data-for="cross"><span class="lbl">Clients</span><button data-k="set" data-v="used" aria-pressed="true">Used in chunks</button><button data-k="set" data-v="all">All labelled</button></div>
-      <div class="plot" id="plot-cross" style="height:600px"></div>
-    </div>
-    <div>
-      <div class="ctl"><span class="lbl">Class-stratified chunks of 20</span></div>
-      <div class="plot" id="plot-chunks" style="height:540px"></div>
-      <p class="note" id="usage-note"></p>
-    </div>
   </div>
 </section>
 
@@ -347,8 +296,9 @@ html, body { background: var(--bg); }
         <div class="formula">R = Range(x&#770;; s*) &minus; min<sub>x</sub> Range(x; s*)</div>
         <p>Range = largest minus smallest final caseload complexity. s* = clinician class scores. 0 means the decision is as balanced as the clinician-label optimum.</p></div>
       <div class="metric"><h3>Assignment agreement <span class="small">(%)</span></h3><p>Share of clients sent to the same clinician as a fixed clinician-optimal reference allocation.</p></div>
-      <div class="metric"><h3>Class agreement and QWK</h3><p>LLM class vs. clinician class (distribution: most likely class; score: nearest class score).</p></div>
+      <div class="metric"><h3>Class agreement and QWK</h3><p>LLM class vs. clinician class (<span id="acc-rule">distribution: most likely class; score: nearest class score</span>).</p></div>
       <div class="metric"><h3>Feasibility</h3><p>LLM full allocations must assign every client exactly once within each clinician's capacity.</p></div>
+      <div class="metric" id="bench-box" style="border-style:dashed"><h3>Equal-complexity benchmark <span class="small">(dashed line in the results)</span></h3><p>The same OR model with every client given the same complexity, so it only balances client counts. An assessment adds value only if it beats this line.</p></div>
     </div>
   </div>
 </section>
@@ -365,9 +315,9 @@ html, body { background: var(--bg); }
 <!-- 12. Results B -->
 <section>
   <h2><span class="kicker">Results</span><span class="view-tag">VIEW B</span>Models side by side in every cell</h2>
-  <p class="lede">Same matrix; each cell compares the three models with 95% intervals over the 15 decision instances.</p>
+  <p class="lede">Colour = model; shape = initial caseload (● balanced, ■ unbalanced, ◆ highly unbalanced); 95% intervals over chunks. LLM allocation has its own axis.</p>
   <div class="ctl" data-for="B"></div>
-  <div class="plot" id="plot-B" style="height:680px"></div>
+  <div class="plot" id="plot-B" style="height:690px"></div>
 </section>
 
 <!-- 13. Results C -->
@@ -380,7 +330,7 @@ html, body { background: var(--bg); }
 <!-- 14. Results D -->
 <section>
   <h2><span class="kicker">Results</span><span class="view-tag">VIEW D</span>Does class accuracy translate into better decisions?</h2>
-  <p class="lede">Each marker is one configuration (number = rung). Color = model, shape = output.</p>
+  <p class="lede">Each marker is one configuration (number = rung). Colour = model, shape = output. Click a legend entry to hide or show it.</p>
   <div class="ctl" data-for="D"></div>
   <div class="plot" id="plot-D" style="height:650px"></div>
 </section>
@@ -388,9 +338,10 @@ html, body { background: var(--bg); }
 <!-- 15. Results E -->
 <section>
   <h2><span class="kicker">Results</span><span class="view-tag">VIEW E</span>LLM full allocation vs. OR on LLM ratings (rungs 5–6)</h2>
+  <div class="ctl" data-for="E"></div>
   <div class="cols c73">
-    <div><div class="plot" id="plot-E1" style="height:660px"></div></div>
-    <div><div class="plot" id="plot-E2" style="height:660px"></div></div>
+    <div><div class="plot" id="plot-E1" style="height:620px"></div></div>
+    <div><div class="plot" id="plot-E2" style="height:620px"></div></div>
   </div>
 </section>
 
@@ -438,12 +389,15 @@ const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a"];
 const MODELS = D.models.map((m, i) => ({ ...m, color: MODEL_COLORS[i % 3] }));
 const mName = m => m.placeholder ? `${m.name} (pending)` : m.name;
 const PLACEHOLDERS = MODELS.filter(m => m.placeholder);
+const EXCLUDED = D.excluded_outputs || [];
 const OUTPUTS = [
   { key: "label", name: "Label", sub: "one class, 1–5", color: "#6250d6", dash: "solid", symbol: "circle" },
   { key: "distribution", name: "Distribution", sub: "probability per class", color: "#008300", dash: "dash", symbol: "square" },
   { key: "score", name: "Score", sub: "continuous, 1.0–1.8", color: "#e87ba4", dash: "dot", symbol: "diamond" },
   { key: "allocation", name: "LLM allocation", sub: "LLM assigns all clients", color: "#eda100", dash: "longdash", symbol: "triangle-up" },
-];
+].filter(o => !EXCLUDED.includes(o.key) && (o.key === "allocation" || D.cells.some(c => c.output === o.key)));
+const RATING_NAMES = OUTPUTS.filter(o => o.key !== "allocation").map(o => o.key === "label" ? "class" : o.key);
+const listText = a => a.length < 3 ? a.join(" or ") : a.slice(0, -1).join(", ") + " or " + a[a.length - 1];
 const RUNGS = [
   { k: 1, name: "Profile only", sees: "one client's ICF profile" },
   { k: 2, name: "+ Purpose", sees: "the profile, and that ratings feed a caseload assignment" },
@@ -473,7 +427,6 @@ const OR_TEXT = {
   allocation: "no OR: the LLM's own assignment",
 };
 const CLASS_RAMP = ["#9ec5f4", "#5598e7", "#2a78d6", "#1c5cab", "#0d366b"];
-const CONF_RAMP = ["#b7d3f6", "#5598e7", "#184f95", "#0d366b", "#104281"];
 const SEQ = [[0, "#eef5fd"], [0.2, "#cde2fb"], [0.45, "#86b6ef"], [0.7, "#2a78d6"], [1, "#104281"]];
 const DIV = [[0, "#c43c3c"], [0.25, "#e88a84"], [0.5, "#f0efec"], [0.75, "#6da7ec"], [1, "#1c5cab"]];
 const PROFILE_NAMES = { balanced: "Balanced", unbalanced: "Unbalanced", highly_unbalanced: "Highly unbalanced" };
@@ -511,9 +464,9 @@ function draw(id, traces, layout) { Plotly.react(id, traces, layout, CONFIG); }
 
 // ------------------------------------------------------------------ controls
 const state = {
-  labels: { unit: "n" }, cross: { set: "used" },
-  A: { metric: "regret", mode: "value" }, B: { metric: "regret" },
-  C: { metric: "regret", group: "output" }, D: { x: "qwk", y: "regret" },
+  labels: { unit: "n" },
+  A: { metric: "regret", mode: "value", prof: "all" }, B: { metric: "regret", split: "split" },
+  C: { metric: "regret", group: "output", prof: "all" }, D: { x: "qwk", y: "regret", prof: "all" }, E: { prof: "all" },
 };
 const RENDER = {};
 function buildControls(key, groups) {
@@ -540,16 +493,18 @@ function hoverPanel(selector, itemSel, panelId, texts, first) {
   if (start) show(start);
 }
 
-// title chips
-document.getElementById("title-chips").innerHTML =
-  MODELS.map(m => `<span class="chip"><span class="dot" style="background:${m.color}"></span>${mName(m)}</span>`).join("") +
-  `<span class="chip">6 context rungs × 3 output formats + LLM allocation</span>` +
-  `<span class="chip">${D.labels.used.n} clinician-labelled clients · ${Object.keys(D.labels.chunks).length * 3} decision instances</span>`;
+// output-dependent text
+document.getElementById("assess-sub").textContent = RATING_NAMES.join(" · ");
+document.getElementById("acc-rule").textContent = [
+  OUTPUTS.some(o => o.key === "distribution") ? "distribution: most likely class" : null,
+  OUTPUTS.some(o => o.key === "score") ? "score: nearest class score" : null,
+].filter(Boolean).join("; ") || "label as given";
+document.getElementById("matrix").style.gridTemplateColumns = `300px repeat(${OUTPUTS.length}, 1fr)`;
 
 hoverPanel("#flow", ".node", "flow-detail", {
   notes: "<b>Clinical notes</b>Pre-treatment service-planning and assessment text for each child, de-identified. This is the unstructured information the decision depends on.",
   icf: "<b>ICF profile (LLM)</b>Each model reads the notes once and fills a structured ICF profile with statuses, qualifiers and evidence quotes. No class is assigned here.",
-  assess: "<b>LLM assessment</b>The model rates each client's complexity from its ICF profile, with more decision context at each rung, as a label, a distribution or a score.",
+  assess: `<b>LLM assessment</b>The model rates each client's complexity from its ICF profile, with more decision context at each rung, as ${listText(RATING_NAMES.map(n => n === "class" ? "a label" : "a " + n))}.`,
   or: "<b>Decision model (OR)</b>Assigns the new clients to clinicians within capacity, minimizing the gap between the most and least loaded clinician (Gurobi, " + D.optimization.n_seeds + " seeded optimal solutions).",
   decision: "<b>Decision</b>An assignment of every new client to one clinician.",
   regret: "<b>Regret</b>The decision is evaluated with the <strong>clinician</strong> classes: how far its caseload balance is from the best balance achievable with clinician labels.",
@@ -615,32 +570,6 @@ RENDER.labels = function () {
   draw("plot-conf", bar("conf", "confidence", L.conf_order), lay("Clinician confidence in the label"));
 };
 
-RENDER.cross = function () {
-  const s = state.cross.set, data = L[s];
-  const traces = L.conf_order.map((c, i) => ({
-    type: "bar", orientation: "h", name: c, y: CLASS_IDS.map(k => `Class ${k}`), x: CLASS_IDS.map(k => data.cross[k][c] || 0),
-    marker: { color: CONF_RAMP[i], line: { color: SURF, width: 2 } },
-    text: CLASS_IDS.map(k => (data.cross[k][c] || 0) || ""), textposition: "inside", insidetextanchor: "middle", textangle: 0, constraintext: "none",
-    textfont: { color: i === 0 ? "#0b1d36" : "white", size: 15 },
-    hovertemplate: `<b>%{y}</b> · ${c} confidence<br>%{x} clients<extra></extra>` }));
-  draw("plot-cross", traces, { ...BASE_LAYOUT(), barmode: "stack", title: { text: `Class × confidence (${s === "used" ? "used in chunks" : "all labelled"}, n=${data.n})`, x: 0, y: 0.98, font: { size: 20 } },
-    yaxis: axis({ autorange: "reversed", showgrid: false }), xaxis: axis({ title: { text: "clients" } }),
-    legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom", traceorder: "normal", title: { text: "Confidence  " } }, margin: { l: 80, r: 10, t: 90, b: 60 } });
-};
-
-RENDER.chunks = function () {
-  const ids = Object.keys(L.chunks);
-  const traces = CLASS_IDS.map((k, i) => ({ type: "bar", name: `Class ${k}`, x: ids, y: ids.map(c => L.chunks[c][k] || 0),
-    marker: { color: CLASS_RAMP[i], line: { color: SURF, width: 2 } },
-    text: ids.map(c => (L.chunks[c][k] || 0) > 1 ? L.chunks[c][k] : ""), textposition: "inside", insidetextanchor: "middle", textangle: 0, constraintext: "none",
-    textfont: { color: i < 2 ? "#0b1d36" : "white", size: 15 },
-    hovertemplate: `<b>Chunk %{x}</b> · Class ${k}<br>%{y} clients<extra></extra>` }));
-  draw("plot-chunks", traces, { ...BASE_LAYOUT(), barmode: "stack", yaxis: axis({ title: { text: "clients per chunk" } }),
-    xaxis: axis({ showgrid: false }), legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom", traceorder: "normal" }, margin: { l: 60, r: 10, t: 50, b: 40 } });
-  const usage = Object.entries(L.usage).map(([t, n]) => `${n} clients used ${t}×`).join(", ");
-  document.getElementById("usage-note").innerHTML = `Each chunk mirrors the class mix of the ${L.used.n} eligible clients. A client appears at most once per chunk; across chunks: ${usage}.`;
-};
-
 // ------------------------------------------------------------------ design matrix
 (function () {
   const box = document.getElementById("matrix"), texts = {};
@@ -690,29 +619,64 @@ RENDER.profiles = function () {
 };
 
 // ------------------------------------------------------------------ results helpers
+const PROFILES = ["balanced", "unbalanced", "highly_unbalanced"];
+const PROFILE_SYMBOL = { balanced: "circle", unbalanced: "square", highly_unbalanced: "diamond" };
+const PROFILE_GLYPH = { balanced: "●", unbalanced: "■", highly_unbalanced: "◆" };
+const PROFILE_OPTIONS = [["all", "All"], ["balanced", "Balanced"], ["unbalanced", "Unbalanced"], ["highly_unbalanced", "Highly unbalanced"]];
+const UB = D.uniform_benchmark || null;
+const BENCH_NAME = "Equal-complexity benchmark";
+const BENCH_COLOR = "#5f5e5a";
+const ALLOC_SEQ = [[0, "#fff6e0"], [0.3, "#fbd78a"], [0.65, "#e9a21a"], [1, "#8f5600"]];
 const rungLabel = r => `Rung ${r} · ${RUNGS[r - 1].name}`;
-function value(metric, c) { const M = METRICS[metric]; if (!c) return null; if (M.ratingOnly && c.output === "allocation") return null; if (M.orOnly && c.output === "allocation") return null; const v = M.get(c); return v === undefined ? null : v; }
-function ciOf(metric, c) { if (!c) return null; const v = METRICS[metric].ci(c); return v === undefined ? null : v; }
-function nText(c) {
-  if (!c) return "not run";
-  if (c.output === "allocation") return `${c.n_feasible ?? 0}/${c.n_expected} feasible allocations`;
-  return `${c.n_units}/${c.n_expected} instances solved · ${c.n_pairs ?? 0} ratings vs. clinicians`;
+function stats(c, prof) {
+  if (!c) return null;
+  if (!prof || prof === "all") return c;
+  const b = (c.by_profile || {})[prof];
+  return b ? { model: c.model, rung: c.rung, output: c.output, ...b } : null;
 }
-function hoverFor(metric, m, r, o, c) {
-  const M = METRICS[metric], v = value(metric, c), ci = ciOf(metric, c);
-  return `<b>${m.name}</b><br>${rungLabel(r)} × ${o.name}<br>${M.short}: <b>${fmt(v, M.d)}${M.unit}</b>${ci ? ` ± ${fmt(ci, M.d)}` : ""}<br>${nText(c)}`;
+function value(metric, c, prof) {
+  const M = METRICS[metric], s = stats(c, prof);
+  if (!s) return null;
+  if ((M.ratingOnly || M.orOnly) && s.output === "allocation") return null;
+  const v = M.get(s);
+  return v === undefined || v === null || Number.isNaN(v) ? null : v;
+}
+function ciOf(metric, c, prof) { const s = stats(c, prof); if (!s) return null; const v = METRICS[metric].ci(s); return v === undefined ? null : v; }
+function benchVal(metric, prof) {
+  if (!UB || !["regret", "assign"].includes(metric)) return null;
+  const s = prof && prof !== "all" ? (UB.by_profile || {})[prof] : UB;
+  if (!s) return null;
+  const v = METRICS[metric].get(s);
+  return v === undefined || v === null ? null : v;
+}
+function nText(s) {
+  if (!s) return "not run";
+  if (s.output === "allocation") return `${s.n_feasible ?? 0}/${s.n_expected} feasible allocations`;
+  return `${s.n_units ?? 0}/${s.n_expected} instances solved · ${s.n_pairs ?? 0} ratings vs. clinicians`;
+}
+function hoverFor(metric, m, r, o, c, prof) {
+  const M = METRICS[metric], v = value(metric, c, prof), ci = ciOf(metric, c, prof);
+  const b = benchVal(metric, prof);
+  return `<b>${m.name}</b><br>${rungLabel(r)} × ${o.name}${prof && prof !== "all" ? `<br>${PROFILE_NAMES[prof]} initial caseloads` : ""}` +
+    `<br>${M.short}: <b>${fmt(v, M.d)}${M.unit}</b>${ci ? ` ± ${fmt(ci, M.d)}` : ""}<br>${nText(stats(c, prof))}` +
+    (b !== null ? `<br>benchmark: ${fmt(b, M.d)}${M.unit}` : "");
 }
 function colsFor(metric) { return OUTPUTS.filter(o => !(o.key === "allocation" && (METRICS[metric].ratingOnly || METRICS[metric].orOnly))); }
-function allValues(metric) {
-  const out = [];
-  MODELS.forEach(m => RUNGS.forEach(r => OUTPUTS.forEach(o => { const v = value(metric, cell(m.key, r.k, o.key)); if (v !== null) out.push(v); })));
-  return out;
+function rangeOf(vals, M, pad) {
+  if (!vals.length) return [0, 1];
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (M.zero) lo = Math.min(0, lo);
+  const p = (hi - lo) * (pad ?? 0.08) || 0.1;
+  return [M.zero && lo >= 0 ? lo - p * 0.3 : lo - p, hi + p];
 }
-function bestText(metric) {
+const betterText = M => M.better < 0 ? " (lower is better)" : M.better > 0 ? " (higher is better)" : "";
+const benchLine = (x0, x1, y0, y1, xref, yref) => ({ type: "line", x0, x1, y0, y1, xref, yref, layer: "below", line: { color: BENCH_COLOR, width: 2, dash: "dash" } });
+const benchLegend = (show, extra) => show ? [{ type: "scatter", mode: "lines", x: [null], y: [null], name: BENCH_NAME, line: { color: BENCH_COLOR, width: 2, dash: "dash" }, hoverinfo: "skip", ...extra }] : [];
+function bestText(metric, prof) {
   const M = METRICS[metric]; if (!M.better) return "";
   return MODELS.filter(m => !m.placeholder).map(m => {
     let best = null;
-    RUNGS.forEach(r => OUTPUTS.forEach(o => { const c = cell(m.key, r.k, o.key), v = value(metric, c);
+    RUNGS.forEach(r => colsFor(metric).forEach(o => { const v = value(metric, cell(m.key, r.k, o.key), prof);
       if (v !== null && (best === null || (M.better > 0 ? v > best.v : v < best.v))) best = { v, r: r.k, o: o.name }; }));
     return best ? `<b>${m.short}</b>: R${best.r} × ${best.o} (${fmt(best.v, M.d)}${M.unit})` : "";
   }).filter(Boolean).join(" &nbsp;·&nbsp; ");
@@ -721,125 +685,200 @@ function bestText(metric) {
 // ------------------------------------------------------------------ view A: heatmap per model
 buildControls("A", [
   { label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae", "distinct"]) },
-  { label: "Show", k: "mode", options: [["value", "Value"], ["delta", "Change vs. R1 × Label"]] },
+  { label: "Initial caseload", k: "prof", options: PROFILE_OPTIONS },
+  { label: "Show", k: "mode", options: [["value", "Value"], ["delta", "Δ vs. R1 × Label"]] },
 ]);
 RENDER.A = function () {
-  const { metric, mode } = state.A, M = METRICS[metric], cols = colsFor(metric);
-  const n = MODELS.length, gap = 0.04, w = (1 - 0.0 - gap * (n - 1) - 0.07) / n;
-  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 185, r: 20, t: 82, b: 20 }, plot_bgcolor: "#f4f4f2" };
-  const vals = [];
-  const grid = MODELS.map(m => RUNGS.map(r => cols.map(o => {
-    const c = cell(m.key, r.k, o.key); let v = value(metric, c);
-    if (mode === "delta" && v !== null) { const b = value(metric, cell(m.key, 1, "label")); v = b === null ? null : v - b; }
-    if (v !== null) vals.push(v); return v; })));
-  let zmin = Math.min(...vals), zmax = Math.max(...vals);
-  if (mode === "delta") { const a = Math.max(Math.abs(zmin), Math.abs(zmax)) || 1; zmin = -a; zmax = a; }
-  else if (M.zero) zmin = Math.min(0, zmin);
-  const better = M.better || 1;
-  const lastReady = (MODELS.filter(x => !x.placeholder).pop() || {}).key;
+  const { metric, mode, prof } = state.A, M = METRICS[metric], cols = colsFor(metric);
+  const ready = MODELS.filter(m => !m.placeholder), better = M.better || 1;
+  const val = (m, r, o) => {
+    let x = value(metric, cell(m.key, r, o.key), prof);
+    if (mode === "delta" && x !== null) { const b = value(metric, cell(m.key, 1, "label"), prof); x = b === null ? null : x - b; }
+    return x;
+  };
+  // Label and distribution share one colour scale; LLM allocation gets its own, so the
+  // (much larger) allocation values do not wash out the differences between rating outputs.
+  const groups = [cols.filter(o => o.key !== "allocation"), cols.filter(o => o.key === "allocation")].filter(g => g.length).map(g => {
+    const vals = []; ready.forEach(m => RUNGS.forEach(r => g.forEach(o => { const x = val(m, r.k, o); if (x !== null) vals.push(mode === "delta" ? x * better : x); })));
+    let lo = vals.length ? Math.min(...vals) : 0, hi = vals.length ? Math.max(...vals) : 1;
+    if (mode === "delta") { const a = Math.max(Math.abs(lo), Math.abs(hi)) || 1; lo = -a; hi = a; }
+    if (hi - lo < 1e-12) hi = lo + 1e-9;
+    const isAlloc = g[0].key === "allocation";
+    let cs = mode === "delta" ? DIV : (isAlloc ? ALLOC_SEQ : SEQ);
+    if (mode !== "delta" && M.better < 0) cs = cs.map(([p], j) => [p, cs[cs.length - 1 - j][1]]);
+    return { g, lo, hi, cs, isAlloc };
+  });
+  const n = MODELS.length, gap = 0.035, right = 0.1, w = (1 - right - gap * (n - 1)) / n;
+  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 185, r: 10, t: 82, b: 20 }, plot_bgcolor: "#f4f4f2" };
+  const lastReady = ready.length ? ready[ready.length - 1].key : null;
+  const xs = cols.map(o => o.name), ys = RUNGS.map(r => rungLabel(r.k));
   MODELS.forEach((m, i) => {
-    const xa = i ? `x${i + 1}` : "x", ya = i ? `y${i + 1}` : "y";
-    const x0 = i * (w + gap);
-    layout[`xaxis${i ? i + 1 : ""}`] = axis({ domain: [x0, x0 + w], side: "top", showgrid: false, tickfont: { size: 14, color: INK }, fixedrange: true });
-    layout[`yaxis${i ? i + 1 : ""}`] = axis({ autorange: "reversed", showgrid: false, showticklabels: i === 0, fixedrange: true, tickfont: { size: 15, color: INK } });
-    if (m.placeholder) { layout[`xaxis${i ? i + 1 : ""}`].visible = false; layout[`yaxis${i ? i + 1 : ""}`].visible = false; }
-    const z = grid[i], xs = cols.map(o => o.name), ys = RUNGS.map(r => rungLabel(r.k));
-    const zColor = mode === "delta" ? z.map(row => row.map(v => v === null ? null : v * better)) : z;
-    traces.push({ type: "heatmap", x: xs, y: ys, z: zColor, xaxis: xa, yaxis: ya, xgap: 3, ygap: 3,
-      zmin: mode === "delta" ? zmin * 1 : zmin, zmax, colorscale: mode === "delta" ? DIV : (M.better < 0 ? SEQ.map(([p, c], j) => [p, SEQ[SEQ.length - 1 - j][1]]) : SEQ),
-      showscale: m.key === lastReady, colorbar: { thickness: 12, len: 0.85, x: x0 + w + 0.008, xanchor: "left", xpad: 4, tickfont: { size: 13, color: INK2 },
-        title: { text: mode === "delta" ? "better →" : (M.better < 0 ? "↓ better" : M.better > 0 ? "↑ better" : ""), side: "right", font: { size: 13, color: INK2 } } },
-      customdata: RUNGS.map(r => cols.map(o => hoverFor(metric, m, r.k, o, cell(m.key, r.k, o.key)) + (mode === "delta" ? "<br>change vs. R1 × Label: " + fmt(z[r.k - 1][cols.indexOf(o)], M.d) : ""))),
-      hovertemplate: "%{customdata}<extra></extra>", hoverongaps: false });
-    ann.push({ text: `<b>${m.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 1.075, yanchor: "bottom", showarrow: false, font: { size: 19, color: m.placeholder ? MUTED : (m.color === "#1baf7a" ? "#127a55" : m.color) } });
+    const sfx = i ? i + 1 : "", xa = `x${sfx}`, ya = `y${sfx}`, x0 = i * (w + gap);
+    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], side: "top", showgrid: false, tickfont: { size: 14, color: INK }, fixedrange: true,
+      type: "category", categoryorder: "array", categoryarray: xs, range: [-0.5, xs.length - 0.5], visible: !m.placeholder });
+    layout[`yaxis${sfx}`] = axis({ type: "category", categoryorder: "array", categoryarray: ys, autorange: "reversed", showgrid: false,
+      showticklabels: i === 0, fixedrange: true, tickfont: { size: 15, color: INK }, visible: !m.placeholder || i === 0 });
+    ann.push({ text: `<b>${m.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 1.075, yanchor: "bottom", showarrow: false,
+      font: { size: 19, color: m.placeholder ? MUTED : (m.color === "#1baf7a" ? "#127a55" : m.color) } });
     if (m.placeholder) {
-      ann.push({ text: "<b>Results pending</b><br>OR solves in progress", xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.5, showarrow: false,
-        font: { size: 18, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 12 });
+      ann.push({ text: "<b>Results pending</b>", xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.5, showarrow: false, font: { size: 18, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 12 });
       return;
     }
-    const lo = mode === "delta" ? zmin : zmin, hi = zmax;
-    RUNGS.forEach((r, ri) => cols.forEach((o, ci) => {
-      const v = z[ri][ci], c = cell(m.key, r.k, o.key);
-      let t = v === null ? (o.key === "allocation" && r.k < 5 ? "" : "—") : fmt(v, M.d);
-      if (v !== null && mode === "delta" && v > 0) t = "+" + t;
-      if (v !== null && c && c.n_expected && c.n_units < c.n_expected && mode === "value") t += "*";
-      const shade = v === null ? 0 : mode === "delta" ? Math.abs(v * better) / (hi || 1) : (M.better < 0 ? (hi - v) : (v - lo)) / ((hi - lo) || 1);
-      ann.push({ text: t, x: o.name, y: rungLabel(r.k), xref: xa, yref: ya, showarrow: false,
-        font: { size: 15, color: mode === "value" && shade > 0.62 ? "white" : (mode === "delta" && shade > 0.6 ? "white" : INK) } });
-    }));
+    groups.forEach((G, gi) => {
+      const z = RUNGS.map(r => G.g.map(o => val(m, r.k, o)));
+      const zc = z.map(row => row.map(v => v === null ? null : (mode === "delta" ? v * better : v)));
+      const two = groups.length > 1;
+      // Each trace spans every column (blank outside its group): a one-column heatmap does not draw.
+      const zFull = RUNGS.map((r, ri) => cols.map(o => { const k = G.g.indexOf(o); return k < 0 ? null : zc[ri][k]; }));
+      traces.push({ type: "heatmap", x: xs, y: ys, z: zFull, xaxis: xa, yaxis: ya, xgap: 3, ygap: 3, zmin: G.lo, zmax: G.hi, colorscale: G.cs,
+        showscale: m.key === lastReady,
+        colorbar: { thickness: 12, len: two ? (gi ? 0.36 : 0.56) : 0.9, y: two ? (gi ? 0 : 1) : 0.5, yanchor: two ? (gi ? "bottom" : "top") : "middle",
+          x: x0 + w + 0.012, xanchor: "left", xpad: 4, tickfont: { size: 12, color: INK2 },
+          title: { text: (G.isAlloc ? "LLM allocation" : (two ? "Label & distribution" : "")) + (mode === "delta" ? " · better →" : (M.better < 0 ? " · ↓ better" : M.better > 0 ? " · ↑ better" : "")), side: "right", font: { size: 12, color: INK2 } } },
+        customdata: RUNGS.map(r => cols.map(o => hoverFor(metric, m, r.k, o, cell(m.key, r.k, o.key), prof) +
+          (mode === "delta" ? "<br>change vs. R1 × Label: " + fmt(val(m, r.k, o), M.d) : ""))),
+        hovertemplate: "%{customdata}<extra></extra>", hoverongaps: false });
+      RUNGS.forEach((r, ri) => G.g.forEach((o, ci) => {
+        const v = z[ri][ci], c = stats(cell(m.key, r.k, o.key), prof);
+        let t = v === null ? (o.key === "allocation" && r.k < 5 ? "" : "—") : fmt(v, M.d);
+        if (v !== null && mode === "delta" && v > 0) t = "+" + t;
+        if (v !== null && mode === "value" && c && c.n_expected && (c.output === "allocation" ? c.n_feasible : c.n_units) < c.n_expected && !M.ratingOnly) t += "*";
+        const zz = zc[ri][ci];
+        const pos = zz === null ? 0 : (zz - G.lo) / (G.hi - G.lo);
+        const dark = mode === "delta" ? Math.abs(pos - 0.5) > 0.32 : (M.better < 0 ? pos < 0.38 : pos > 0.62);
+        ann.push({ text: t, x: o.name, y: rungLabel(r.k), xref: xa, yref: ya, showarrow: false, font: { size: 15, color: dark ? "white" : INK } });
+      }));
+    });
   });
   layout.annotations = ann;
   draw("plot-A", traces, layout);
-  document.getElementById("hl-A").innerHTML = (mode === "value" ? `Best cell per model, ${M.label.toLowerCase()} (${M.desc}): ` + bestText(metric) : `Change from each model's Rung 1 × Label cell; blue = better, red = worse.`) +
-    (mode === "value" ? ` &nbsp;<span class="small">* fewer than ${nChunks * 3} instances (see caveats). Darker = ${M.better < 0 ? "lower" : "higher"} value.</span>` : "");
+  const b = benchVal(metric, prof);
+  document.getElementById("hl-A").innerHTML = (mode === "value"
+    ? `Best cell per model (${profText(prof)}): ` + bestText(metric, prof)
+    : `Change from each model's Rung 1 × Label cell; blue = better, red = worse.`) +
+    (b !== null ? ` &nbsp;·&nbsp; <b>${BENCH_NAME}</b>: ${fmt(b, M.d)}${M.unit}` : "") +
+    ` <span class="small">&nbsp;Label &amp; distribution share one colour scale; LLM allocation has its own.${mode === "value" && !M.ratingOnly ? " * fewer instances than planned (see caveats)." : ""}</span>`;
 };
+const profText = p => p === "all" ? "all initial caseloads" : PROFILE_NAMES[p].toLowerCase() + " initial caseloads";
 
 // ------------------------------------------------------------------ view B: small multiples per cell
-buildControls("B", [{ label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae"]) }]);
+buildControls("B", [
+  { label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae"]) },
+  { label: "Initial caseload", k: "split", options: [["split", "One marker per caseload"], ["all", "Pooled"]] },
+]);
 RENDER.B = function () {
-  const { metric } = state.B, M = METRICS[metric], cols = colsFor(metric);
-  const nR = RUNGS.length, nC = cols.length, left = 0.15, gx = 0.022, gy = 0.03;
-  const w = (1 - left - gx * (nC - 1)) / nC, h = (1 - 0.1 - gy * (nR - 1)) / nR;
-  const vals = []; MODELS.forEach(m => RUNGS.forEach(r => cols.forEach(o => { const c = cell(m.key, r.k, o.key), v = value(metric, c), e = ciOf(metric, c) || 0; if (v !== null) { vals.push(v - e, v + e); } })));
-  let lo = Math.min(...vals), hi = Math.max(...vals); if (M.zero) lo = Math.min(0, lo); const pad = (hi - lo) * 0.08 || 0.1; lo -= M.zero && lo >= 0 ? 0 : pad; hi += pad; if (M.zero && lo > -pad) lo = Math.min(lo, 0) - pad * 0.3;
-  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 10, r: 10, t: 34, b: 46 }, showlegend: true, legend: { orientation: "h", x: left, y: 1.0, yanchor: "bottom", font: { size: 15 } } };
+  const { metric, split } = state.B, M = METRICS[metric], cols = colsFor(metric);
+  const profs = split === "split" ? PROFILES : ["all"], nM = MODELS.length;
+  const block = nM + (profs.length > 1 ? 0.8 : 0);
+  const yOf = (pi, mi) => pi * block + mi, yMax = yOf(profs.length - 1, nM - 1);
+  const nR = RUNGS.length, nC = cols.length, left = 0.12, gx = 0.035, gy = 0.022, top = 0.9;
+  const w = (1 - left - gx * (nC - 1)) / nC, h = (top - gy * (nR - 1)) / nR;
+  const rangeFor = isAlloc => {
+    const vals = [];
+    MODELS.forEach(m => RUNGS.forEach(r => cols.filter(o => (o.key === "allocation") === isAlloc).forEach(o => profs.forEach(p => {
+      const c = cell(m.key, r.k, o.key), x = value(metric, c, p), e = ciOf(metric, c, p) || 0; if (x !== null) vals.push(x - e, x + e); }))));
+    profs.forEach(p => { const b = benchVal(metric, p); if (b !== null) vals.push(b); });
+    return rangeOf(vals, M);
+  };
+  const ranges = { rating: rangeFor(false), alloc: rangeFor(true) };
+  const traces = [], ann = [], shapes = [];
+  const layout = { ...BASE_LAYOUT(), margin: { l: 10, r: 10, t: 34, b: 60 }, showlegend: true, legend: { orientation: "h", x: left, y: 1.0, yanchor: "bottom", font: { size: 15 }, traceorder: "normal" } };
   let idx = 0;
   RUNGS.forEach((r, ri) => cols.forEach((o, ci) => {
-    idx += 1; const sfx = idx === 1 ? "" : idx, x0 = left + ci * (w + gx), y1 = 1 - 0.1 - ri * (h + gy);
-    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], anchor: `y${sfx}`, range: [lo, hi], showticklabels: ri === nR - 1, fixedrange: true, nticks: 5, zeroline: !!M.zero });
-    layout[`yaxis${sfx}`] = axis({ domain: [y1 - h, y1], anchor: `x${sfx}`, showticklabels: false, showgrid: false, range: [-0.7, MODELS.length - 0.3], fixedrange: true, autorange: false });
-    if (o.key === "allocation" && r.k < 5) {
+    idx += 1;
+    const sfx = idx === 1 ? "" : idx, x0 = left + ci * (w + gx), y1 = top - ri * (h + gy), isAlloc = o.key === "allocation";
+    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], anchor: `y${sfx}`, range: isAlloc ? ranges.alloc : ranges.rating, showticklabels: ri === nR - 1, fixedrange: true, nticks: 5, zeroline: !!M.zero });
+    layout[`yaxis${sfx}`] = axis({ domain: [y1 - h, y1], anchor: `x${sfx}`, showticklabels: false, showgrid: false, range: [yMax + 0.7, -0.7], fixedrange: true, autorange: false, zeroline: false });
+    if (isAlloc && r.k < 5) {
       layout[`xaxis${sfx}`].visible = false; layout[`yaxis${sfx}`].visible = false;
       ann.push({ text: "needs clinicians", xref: `x${sfx} domain`, yref: `y${sfx} domain`, x: 0.5, y: 0.5, showarrow: false, font: { size: 13, color: MUTED } });
       traces.push({ type: "scatter", x: [], y: [], xaxis: `x${sfx}`, yaxis: `y${sfx}`, showlegend: false, hoverinfo: "skip" });
       return;
     }
-    MODELS.forEach((m, mi) => {
-      const c = cell(m.key, r.k, o.key), v = value(metric, c), e = ciOf(metric, c);
-      traces.push({ type: "scatter", mode: "markers", x: v === null ? [] : [v], y: [MODELS.length - 1 - mi], xaxis: `x${sfx}`, yaxis: `y${sfx}`,
-        marker: { color: m.color, size: 11, line: { color: SURF, width: 2 } }, error_x: { type: "data", array: [e || 0], visible: !!e, color: m.color, thickness: 2, width: 0 },
-        name: mName(m), legendgroup: m.key, showlegend: idx === 1, hovertemplate: hoverFor(metric, m, r.k, o, c) + "<extra></extra>" });
+    profs.forEach((p, pi) => {
+      if (profs.length > 1 && pi % 2 === 1) shapes.push({ type: "rect", xref: `x${sfx} domain`, yref: `y${sfx}`, x0: 0, x1: 1, y0: yOf(pi, 0) - 0.45, y1: yOf(pi, nM - 1) + 0.45, fillcolor: "#eaf0f8", line: { width: 0 }, layer: "below" });
+      const b = benchVal(metric, p);
+      if (b !== null) shapes.push(benchLine(b, b, yOf(pi, 0) - 0.5, yOf(pi, nM - 1) + 0.5, `x${sfx}`, `y${sfx}`));
     });
-    if (ri === 0) ann.push({ text: `<b>${o.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.905, yanchor: "bottom", showarrow: false, font: { size: 17, color: INK } });
+    MODELS.forEach((m, mi) => {
+      const c = cell(m.key, r.k, o.key);
+      const xsv = profs.map(p => value(metric, c, p)), es = profs.map(p => ciOf(metric, c, p) || 0);
+      traces.push({ type: "scatter", mode: "markers", x: xsv, y: profs.map((p, pi) => yOf(pi, mi)), xaxis: `x${sfx}`, yaxis: `y${sfx}`,
+        marker: { color: m.color, size: profs.length > 1 ? 8 : 11, symbol: profs.map(p => p === "all" ? "circle" : PROFILE_SYMBOL[p]), line: { color: SURF, width: 1.5 } },
+        error_x: { type: "data", array: es, visible: es.some(Boolean), color: m.color, thickness: 1.6, width: 0 },
+        name: mName(m), legendgroup: m.key, showlegend: false,
+        hovertemplate: profs.map(p => hoverFor(metric, m, r.k, o, c, p) + "<extra></extra>") });
+    });
+    if (ri === 0) ann.push({ text: `<b>${o.name}</b>${isAlloc ? ' <span style="font-size:13px">(own scale)</span>' : ""}`, xref: "paper", yref: "paper", x: x0 + w / 2, y: top + 0.005, yanchor: "bottom", showarrow: false, font: { size: 17, color: INK } });
     if (ci === 0) ann.push({ text: `<b>Rung ${r.k}</b><br><span style="font-size:13px;color:${INK2}">${RUNGS[ri].name}</span>`, xref: "paper", yref: "paper", x: left - 0.01, xanchor: "right", y: y1 - h / 2, showarrow: false, align: "right", font: { size: 15, color: INK } });
   }));
-  PLACEHOLDERS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), marker: { color: m.color, size: 11 }, showlegend: true, hoverinfo: "skip" }));
-  ann.push({ text: `${M.label}${M.better ? (M.better < 0 ? " · lower is better" : " · higher is better") : ""}`, xref: "paper", yref: "paper", x: left + (1 - left) / 2, y: -0.07, showarrow: false, font: { size: 15, color: INK2 } });
-  layout.annotations = ann;
+  MODELS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), marker: { color: m.color, size: 11 }, hoverinfo: "skip" }));
+  if (profs.length > 1) PROFILES.forEach(p => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: PROFILE_NAMES[p], marker: { color: "#8b8b86", size: 10, symbol: PROFILE_SYMBOL[p] }, hoverinfo: "skip" }));
+  traces.push(...benchLegend(profs.some(p => benchVal(metric, p) !== null)));
+  const ratingCols = cols.filter(o => o.key !== "allocation").length;
+  ann.push({ text: `${M.label}${betterText(M)}`, xref: "paper", yref: "paper", x: left + (ratingCols * (w + gx) - gx) / 2, y: -0.095, showarrow: false, font: { size: 15, color: INK2 } });
+  layout.annotations = ann; layout.shapes = shapes;
   draw("plot-B", traces, layout);
 };
 
 // ------------------------------------------------------------------ view C: rung trajectories
 buildControls("C", [
   { label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae"]) },
-  { label: "Compare", k: "group", options: [["output", "Models (panel per output)"], ["model", "Outputs (panel per model)"]] },
+  { label: "Compare", k: "group", options: [["output", "Models"], ["model", "Outputs"]] },
+  { label: "Initial caseload", k: "prof", options: PROFILE_OPTIONS },
 ]);
 RENDER.C = function () {
-  const { metric, group } = state.C, M = METRICS[metric], cols = colsFor(metric);
-  const panels = group === "output" ? cols : MODELS, series = group === "output" ? MODELS : cols;
-  const n = panels.length, gap = 0.03, w = (1 - gap * (n - 1)) / n;
-  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 70, r: 20, t: 70, b: 60 }, legend: { orientation: "h", x: 0, y: 1.16 } };
-  const vals = allValues(metric); let lo = Math.min(...vals), hi = Math.max(...vals); if (M.zero) lo = Math.min(0, lo); const pad = (hi - lo) * 0.12 || 0.1;
+  const { metric, group, prof } = state.C, M = METRICS[metric], cols = colsFor(metric);
+  const ratingCols = cols.filter(o => o.key !== "allocation"), allocCol = cols.find(o => o.key === "allocation");
+  const ready = MODELS.filter(m => !m.placeholder), bench = benchVal(metric, prof);
+  const valsFor = outs => {
+    const vals = [];
+    ready.forEach(m => RUNGS.forEach(r => outs.forEach(o => { const c = cell(m.key, r.k, o.key), x = value(metric, c, prof), e = ciOf(metric, c, prof) || 0; if (x !== null) vals.push(x - e, x + e); })));
+    if (bench !== null) vals.push(bench);
+    return vals;
+  };
+  const rRating = rangeOf(valsFor(ratingCols), M, 0.12), rAlloc = allocCol ? rangeOf(valsFor([allocCol]), M, 0.12) : null;
+  const panels = [];
+  if (group === "output") {
+    const n = cols.length, gap = 0.05, w = (1 - gap * (n - 1)) / n;
+    cols.forEach((o, i) => panels.push({ title: o.name + (o.key === "allocation" ? " (own scale)" : ""), x: [i * (w + gap), i * (w + gap) + w], y: [0, 1],
+      range: o.key === "allocation" ? rAlloc : rRating, series: MODELS.map(m => ({ m, o })), yTitle: i === 0, bottom: true }));
+  } else {
+    const n = MODELS.length, gap = 0.04, w = (1 - gap * (n - 1)) / n;
+    MODELS.forEach((m, i) => {
+      const x = [i * (w + gap), i * (w + gap) + w];
+      panels.push({ title: mName(m), x, y: allocCol ? [0.4, 1] : [0, 1], range: rRating, series: ratingCols.map(o => ({ m, o })), yTitle: i === 0, placeholder: m.placeholder, bottom: !allocCol });
+      if (allocCol) panels.push({ title: "LLM allocation (own scale)", small: true, x, y: [0, 0.27], range: rAlloc, series: [{ m, o: allocCol }], yTitle: false, placeholder: m.placeholder, bottom: true });
+    });
+  }
+  const traces = [], ann = [], shapes = [], seen = new Set();
+  const layout = { ...BASE_LAYOUT(), margin: { l: 80, r: 20, t: 70, b: 60 }, legend: { orientation: "h", x: 0, y: 1.14 } };
   panels.forEach((p, i) => {
-    const sfx = i ? i + 1 : "", x0 = i * (w + gap);
-    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], anchor: `y${sfx}`, tickvals: [1, 2, 3, 4, 5, 6], range: [0.6, 6.4], title: { text: "rung" }, fixedrange: true, showgrid: false });
-    layout[`yaxis${sfx}`] = axis({ anchor: `x${sfx}`, range: [lo - (M.zero && lo >= 0 ? pad * 0.3 : pad), hi + pad], showticklabels: i === 0, fixedrange: true,
-      title: { text: i === 0 ? M.label + (M.better < 0 ? " (lower is better)" : M.better > 0 ? " (higher is better)" : "") : "" } });
-    ann.push({ text: `<b>${group === "model" ? mName(p) : p.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 1.02, yanchor: "bottom", showarrow: false, font: { size: 17, color: p.placeholder ? MUTED : INK } });
-    if (p.placeholder) ann.push({ text: "Results pending", xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.5, showarrow: false, font: { size: 17, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 10 });
-    series.forEach((s, si) => {
-      const m = group === "output" ? s : p, o = group === "output" ? p : s;
-      const pts = RUNGS.map(r => { const c = cell(m.key, r.k, o.key); return { r: r.k, v: value(metric, c), e: ciOf(metric, c), c }; }).filter(q => q.v !== null);
-      const color = group === "output" ? m.color : o.color;
+    const sfx = i ? i + 1 : "";
+    layout[`xaxis${sfx}`] = axis({ domain: p.x, anchor: `y${sfx}`, tickvals: [1, 2, 3, 4, 5, 6], range: [0.6, 6.4], title: { text: p.bottom ? "rung" : "" }, fixedrange: true, showgrid: false });
+    layout[`yaxis${sfx}`] = axis({ domain: p.y, anchor: `x${sfx}`, range: p.range, fixedrange: true, nticks: p.small ? 4 : 7,
+      title: { text: p.yTitle ? M.label + betterText(M) : "" } });
+    ann.push({ text: p.small ? p.title : `<b>${p.title}</b>`, xref: "paper", yref: "paper", x: (p.x[0] + p.x[1]) / 2, y: p.y[1] + 0.01, yanchor: "bottom", showarrow: false,
+      font: { size: p.small ? 14 : 17, color: p.placeholder ? MUTED : (p.small ? INK2 : INK) } });
+    if (p.placeholder) {
+      ann.push({ text: "Results pending", xref: "paper", yref: "paper", x: (p.x[0] + p.x[1]) / 2, y: (p.y[0] + p.y[1]) / 2, showarrow: false, font: { size: 15, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 8 });
+      return;
+    }
+    if (bench !== null) shapes.push(benchLine(0.6, 6.4, bench, bench, `x${sfx}`, `y${sfx}`));
+    p.series.forEach(({ m, o }) => {
+      const pts = RUNGS.map(r => { const c = cell(m.key, r.k, o.key); return { r: r.k, v: value(metric, c, prof), e: ciOf(metric, c, prof), c }; }).filter(q => q.v !== null);
+      const color = group === "output" ? m.color : o.color, lk = group === "output" ? m.key : o.key;
       traces.push({ type: "scatter", mode: "lines+markers", x: pts.map(q => q.r), y: pts.map(q => q.v), xaxis: `x${sfx}`, yaxis: `y${sfx}`,
         line: { color, width: 2.5, dash: group === "output" ? "solid" : o.dash }, marker: { color, size: 9, symbol: group === "output" ? "circle" : o.symbol, line: { color: SURF, width: 1.5 } },
         error_y: { type: "data", array: pts.map(q => q.e || 0), visible: pts.some(q => q.e), color, thickness: 1.5, width: 4 },
-        name: group === "output" ? mName(s) : s.name, legendgroup: s.key, showlegend: i === 0,
-        hovertemplate: pts.map(q => hoverFor(metric, m, q.r, o, q.c) + "<extra></extra>") });
+        name: group === "output" ? mName(m) : o.name, legendgroup: lk, showlegend: !seen.has(lk),
+        hovertemplate: pts.map(q => hoverFor(metric, m, q.r, o, q.c, prof) + "<extra></extra>") });
+      seen.add(lk);
     });
   });
-  if (group === "output") PLACEHOLDERS.forEach(m => traces.push({ type: "scatter", mode: "lines+markers", x: [null], y: [null], name: mName(m), line: { color: m.color, width: 2.5 }, marker: { color: m.color, size: 9 }, showlegend: true, hoverinfo: "skip" }));
-  layout.annotations = ann;
+  if (group === "output") PLACEHOLDERS.forEach(m => traces.push({ type: "scatter", mode: "lines+markers", x: [null], y: [null], name: mName(m), line: { color: m.color, width: 2.5 }, marker: { color: m.color, size: 9 }, hoverinfo: "skip" }));
+  traces.push(...benchLegend(bench !== null));
+  layout.annotations = ann; layout.shapes = shapes;
   draw("plot-C", traces, layout);
 };
 
@@ -847,48 +886,70 @@ RENDER.C = function () {
 buildControls("D", [
   { label: "x", k: "x", options: [["qwk", "QWK"], ["exact", "Class agreement %"], ["mae", "Class error"]] },
   { label: "y", k: "y", options: [["regret", "Regret"], ["assign", "Assignment %"]] },
+  { label: "Initial caseload", k: "prof", options: PROFILE_OPTIONS },
 ]);
+const D_HIDDEN = new Set();
 RENDER.D = function () {
-  const { x, y } = state.D, MX = METRICS[x], MY = METRICS[y];
-  const traces = [];
-  MODELS.forEach(m => OUTPUTS.filter(o => o.key !== "allocation").forEach(o => {
-    const pts = RUNGS.map(r => cell(m.key, r.k, o.key)).filter(c => c && value(x, c) !== null && value(y, c) !== null);
-    traces.push({ type: "scatter", mode: "markers+text", x: pts.map(c => value(x, c)), y: pts.map(c => value(y, c)), text: pts.map(c => String(c.rung)),
+  const { x, y, prof } = state.D, MX = METRICS[x], MY = METRICS[y];
+  const traces = [], ratingOuts = OUTPUTS.filter(o => o.key !== "allocation");
+  MODELS.forEach(m => ratingOuts.forEach(o => {
+    const pts = RUNGS.map(r => cell(m.key, r.k, o.key)).filter(c => c && value(x, c, prof) !== null && value(y, c, prof) !== null);
+    traces.push({ type: "scatter", mode: "markers+text", x: pts.map(c => value(x, c, prof)), y: pts.map(c => value(y, c, prof)), text: pts.map(c => String(c.rung)),
       textfont: { color: "white", size: 12, family: '"Segoe UI", sans-serif' }, textposition: "middle center",
       marker: { color: m.color, size: 24, symbol: o.symbol, line: { color: SURF, width: 2 }, opacity: 0.95 },
-      name: `${m.short} · ${o.name}`, legendgroup: m.key, showlegend: false,
-      hovertemplate: pts.map(c => `<b>${m.name}</b><br>${rungLabel(c.rung)} × ${o.name}<br>${MX.short}: ${fmt(value(x, c), MX.d)}${MX.unit}<br>${MY.short}: ${fmt(value(y, c), MY.d)}${MY.unit}<extra></extra>`) });
+      name: `${m.short} · ${o.name}`, showlegend: false, visible: !(D_HIDDEN.has("m:" + m.key) || D_HIDDEN.has("o:" + o.key)),
+      hovertemplate: pts.map(c => `<b>${m.name}</b><br>${rungLabel(c.rung)} × ${o.name}${prof !== "all" ? `<br>${PROFILE_NAMES[prof]} initial caseloads` : ""}<br>${MX.short}: ${fmt(value(x, c, prof), MX.d)}${MX.unit}<br>${MY.short}: ${fmt(value(y, c, prof), MY.d)}${MY.unit}<extra></extra>`) });
   }));
-  MODELS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), marker: { color: m.color, size: 12 }, legendgroup: m.key }));
-  OUTPUTS.filter(o => o.key !== "allocation").forEach(o => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: o.name, marker: { color: "#8b8b86", size: 12, symbol: o.symbol } }));
+  MODELS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), meta: "m:" + m.key, marker: { color: m.color, size: 12 }, visible: D_HIDDEN.has("m:" + m.key) ? "legendonly" : true }));
+  ratingOuts.forEach(o => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: o.name, meta: "o:" + o.key, marker: { color: "#8b8b86", size: 12, symbol: o.symbol }, visible: D_HIDDEN.has("o:" + o.key) ? "legendonly" : true }));
+  const b = benchVal(y, prof);
+  traces.push(...benchLegend(b !== null, { meta: null }));
   draw("plot-D", traces, { ...BASE_LAYOUT(), margin: { l: 80, r: 30, t: 50, b: 70 },
-    xaxis: axis({ title: { text: MX.label + (MX.better < 0 ? " (lower is better)" : " (higher is better)") }, zeroline: false }),
-    yaxis: axis({ title: { text: MY.label + (MY.better < 0 ? " (lower is better)" : " (higher is better)") } }),
+    xaxis: axis({ title: { text: MX.label + betterText(MX) }, zeroline: false }),
+    yaxis: axis({ title: { text: MY.label + betterText(MY) } }),
+    shapes: b !== null ? [benchLine(0, 1, b, b, "paper", "y")] : [],
     legend: { orientation: "h", x: 0, y: 1.08 } });
+  const el = document.getElementById("plot-D");
+  if (!el.dataset.hooked) {
+    el.dataset.hooked = "1";
+    el.on("plotly_legendclick", ev => {
+      const k = ev.data[ev.curveNumber].meta;
+      if (k) { D_HIDDEN.has(k) ? D_HIDDEN.delete(k) : D_HIDDEN.add(k); RENDER.D(); }
+      return false;
+    });
+    el.on("plotly_legenddoubleclick", () => false);
+  }
 };
 
 // ------------------------------------------------------------------ view E: allocation
+buildControls("E", [{ label: "Initial caseload", k: "prof", options: PROFILE_OPTIONS }]);
 RENDER.E = function () {
-  const rungs = [5, 6];
-  const t1 = MODELS.map(m => ({ type: "bar", name: mName(m), x: rungs.map(r => `Rung ${r}`), y: rungs.map(r => (cell(m.key, r, "allocation") || {}).n_feasible ?? 0),
-    marker: { color: m.color, line: { color: SURF, width: 2 } }, text: rungs.map(r => { const c = cell(m.key, r, "allocation") || {}; return m.placeholder ? "pending" : `${c.n_feasible ?? 0}/${c.n_expected ?? nChunks * 3}`; }),
+  const { prof } = state.E, rungs = [5, 6];
+  const t1 = MODELS.map(m => ({ type: "bar", name: mName(m), x: rungs.map(r => `Rung ${r}`),
+    y: rungs.map(r => (stats(cell(m.key, r, "allocation"), prof) || {}).n_feasible ?? 0),
+    marker: { color: m.color, line: { color: SURF, width: 2 } },
+    text: rungs.map(r => { const c = stats(cell(m.key, r, "allocation"), prof) || {}; return m.placeholder ? "pending" : `${c.n_feasible ?? 0}/${c.n_expected ?? "?"}`; }),
     textposition: "outside", textfont: { size: 14, color: INK2 },
-    hovertemplate: rungs.map(r => { const c = cell(m.key, r, "allocation") || {}; return `<b>${m.name}</b> · Rung ${r}<br>${c.n_feasible ?? 0} feasible of ${c.n_expected ?? "?"} instances<br>${c.n_parsed ?? 0} parsed as valid JSON<extra></extra>`; }) }));
+    hovertemplate: rungs.map(r => { const c = stats(cell(m.key, r, "allocation"), prof) || {}; return `<b>${m.name}</b> · Rung ${r}<br>${c.n_feasible ?? 0} feasible of ${c.n_expected ?? "?"} instances<br>${c.n_parsed ?? 0} parsed as valid JSON<extra></extra>`; }) }));
+  const nExp = prof === "all" ? nChunks * 3 : nChunks;
   draw("plot-E1", t1, { ...BASE_LAYOUT(), title: { text: "Feasible LLM allocations", x: 0, font: { size: 20 } }, barmode: "group",
-    yaxis: axis({ title: { text: "instances" }, range: [0, nChunks * 3 * 1.15] }), xaxis: axis({ showgrid: false }), legend: { orientation: "h", x: 0, y: -0.1 }, margin: { l: 60, r: 10, t: 60, b: 70 } });
-  const methods = OUTPUTS, traces = [], ready = MODELS.filter(m => !m.placeholder);
+    yaxis: axis({ title: { text: "instances" }, range: [0, nExp * 1.15] }), xaxis: axis({ showgrid: false }), legend: { orientation: "h", x: 0, y: -0.1 }, margin: { l: 60, r: 10, t: 60, b: 70 } });
+  const methods = OUTPUTS, traces = [], ready = MODELS.filter(m => !m.placeholder), b = benchVal("regret", prof);
   rungs.forEach((r, ri) => methods.forEach((o, oi) => {
-    const pts = ready.map((m, mi) => ({ m, mi, c: cell(m.key, r, o.key) })).filter(q => q.c && q.c.regret_mean !== undefined && q.c.regret_mean !== null);
+    const pts = ready.map((m, mi) => ({ m, mi, c: cell(m.key, r, o.key) })).filter(q => value("regret", q.c, prof) !== null);
     traces.push({ type: "scatter", mode: "markers", xaxis: ri ? "x2" : "x", yaxis: ri ? "y2" : "y",
-      x: pts.map(q => q.c.regret_mean), y: pts.map(q => q.mi + (oi - 1.5) * 0.17), error_x: { type: "data", array: pts.map(q => q.c.regret_ci || 0), color: o.color, thickness: 1.5, width: 0 },
+      x: pts.map(q => value("regret", q.c, prof)), y: pts.map(q => q.mi + (oi - (methods.length - 1) / 2) * 0.2),
+      error_x: { type: "data", array: pts.map(q => ciOf("regret", q.c, prof) || 0), color: o.color, thickness: 1.5, width: 0 },
       marker: { color: o.color, symbol: o.symbol, size: 14, line: { color: SURF, width: 1.5 } }, name: o.name, legendgroup: o.key, showlegend: ri === 0,
-      hovertemplate: pts.map(q => hoverFor("regret", q.m, r, o, q.c) + "<extra></extra>") });
+      hovertemplate: pts.map(q => hoverFor("regret", q.m, r, o, q.c, prof) + "<extra></extra>") });
   }));
+  traces.push(...benchLegend(b !== null));
+  const yax = r => axis({ showgrid: false, autorange: "reversed", zeroline: false, title: { text: `Rung ${r}` }, tickvals: ready.map((_, i) => i), ticktext: ready.map(m => m.name), tickfont: { size: 15, color: INK } });
   draw("plot-E2", traces, { ...BASE_LAYOUT(), title: { text: "Decision regret: LLM allocation vs. OR on each output", x: 0, font: { size: 20 } },
     grid: { rows: 2, columns: 1, pattern: "independent", roworder: "top to bottom" },
     xaxis: axis({ title: { text: "" }, rangemode: "tozero" }), xaxis2: axis({ title: { text: "regret (lower is better)" }, rangemode: "tozero", matches: "x" }),
-    yaxis: axis({ showgrid: false, autorange: "reversed", zeroline: false, title: { text: "Rung 5" }, tickvals: ready.map((_, i) => i), ticktext: ready.map(m => m.name), tickfont: { size: 15, color: INK } }),
-    yaxis2: axis({ showgrid: false, autorange: "reversed", zeroline: false, title: { text: "Rung 6" }, tickvals: ready.map((_, i) => i), ticktext: ready.map(m => m.name), tickfont: { size: 15, color: INK } }),
+    yaxis: yax(5), yaxis2: yax(6),
+    shapes: b !== null ? [benchLine(b, b, 0, 1, "x", "y domain"), benchLine(b, b, 0, 1, "x2", "y2 domain")] : [],
     legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom" }, margin: { l: 150, r: 10, t: 100, b: 60 } });
 };
 
@@ -915,12 +976,14 @@ RENDER.cov = function () {
     { ...BASE_LAYOUT(), title: { text: `Instances evaluated per configuration (of ${nChunks * 3})`, x: 0, font: { size: 19 } }, plot_bgcolor: "#f4f4f2",
       yaxis: axis({ autorange: "reversed", showgrid: false, tickfont: { size: 13, color: INK } }), xaxis: axis({ side: "top", showgrid: false }), margin: { l: 190, r: 10, t: 70, b: 10 } });
 };
+if (!UB) document.getElementById("bench-box").style.display = "none";
 (function caveats() {
   const dist = D.cells.filter(c => c.output === "distribution");
   const failed = dist.reduce((a, c) => a + ((c.statuses || {}).solve_failed || 0), 0), total = dist.reduce((a, c) => a + (c.n_expected || 0), 0);
   const items = [
     `<b>Small test set:</b> ${L.used.n} clients, ${nChunks} chunks; intervals are over ${nChunks * 3} instances that share clients, so they are optimistic.`,
     `<b>Distribution pools:</b> ${failed} of ${total} solves hit the ${D.optimization.time_limit / 60}-minute limit (marked *). Those cells average fewer, possibly easier, instances.`,
+    ...(UB ? [`<b>${BENCH_NAME} (dashed lines):</b> OR with every client given the same complexity (${Object.keys(UB.rating_values || {}).join(", ") || "constant"}), i.e. count balancing only; regret ${fmt(UB.regret_mean, 3)}, assignment ${fmt(UB.assign_mean, 1)}%.`] : []),
     `<b>OR settings:</b> ${D.optimization.n_seeds} seeds, ${D.optimization.scenario_count} SAA scenarios, optimality tolerance ${D.optimization.tolerance}.`,
     `<b>Class imbalance:</b> class 1 and class 5 are rare (${L.used.class["1"] || 0} and ${L.used.class["5"] || 0} clients), so agreement is driven by classes 2–4.`,
     `<b>Label confidence:</b> ${L.all.confidence["High"] || 0} of ${L.all.n} labels are high confidence; the benchmark itself is uncertain.`,
@@ -932,13 +995,13 @@ RENDER.cov = function () {
     `Add ${(D.pending_models || ["remaining models"]).join(", ")} when inference completes`,
     "Re-solve timed-out distribution pools with a longer limit",
     "Tie-break step: let the LLM choose among equally optimal allocations",
-    "Break results down by clinician confidence and load profile",
+    "Break results down by clinician label confidence",
     "Scale to the main study (48 chunks) once the view is chosen",
   ].map(t => `<li>${t}</li>`).join("");
 })();
 
 // ------------------------------------------------------------------ lazy rendering
-const SLIDE_RENDERS = { "plot-class": "labels", "plot-cross": "cross", "plot-chunks": "chunks", "plot-profiles": "profiles",
+const SLIDE_RENDERS = { "plot-class": "labels", "plot-profiles": "profiles",
   "plot-A": "A", "plot-B": "B", "plot-C": "C", "plot-D": "D", "plot-E1": "E", "plot-cov": "cov" };
 const done = new Set();
 function renderSlide(slide) {

@@ -272,6 +272,26 @@ def load(name):
 
 
 # ----------------------------------------------------------------------------- validator
+NUMBER_RANGE_KEYS = ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum")
+
+
+def decoding_schema(schema):
+    """The schema sent to the decoder: ``number`` ranges removed, everything else unchanged.
+
+    xgrammar 0.2.1 compiles a fractional range wrongly: {"type": "number", "minimum": 1.0,
+    "maximum": 1.8} becomes ``"1" | "1" <any char> "8"``, so 1.8 was the only decimal the model
+    could write. Ranges are enforced after decoding instead (``validate``; the score is clipped
+    in ``dr.rate``). Prompts, and therefore prompt hashes, are unaffected.
+    """
+    if isinstance(schema, list):
+        return [decoding_schema(v) for v in schema]
+    if not isinstance(schema, dict):
+        return schema
+    drop = schema.get("type") == "number"
+    return {k: decoding_schema(v) for k, v in schema.items()
+            if not (drop and k in NUMBER_RANGE_KEYS)}
+
+
 def validate(value, schema, path="$"):
     """Strict validator for the subset of JSON Schema used here. Returns error strings."""
     errors = []

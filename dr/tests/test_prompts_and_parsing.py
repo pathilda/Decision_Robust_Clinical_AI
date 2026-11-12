@@ -220,3 +220,15 @@ def test_allocation_feasibility_check():
 def test_profiles_rescaled_and_valid():
     assert list(PROFILES) == ["balanced", "unbalanced", "highly_unbalanced"]
     assert [c["initial_complexity"] for c in PROFILES["highly_unbalanced"]] == [10.0, 14.0, 18.0]
+
+
+def test_decoding_schema_drops_number_ranges_only():
+    from dr.schemas import decoding_schema, load
+
+    score = decoding_schema(load("score"))
+    assert score["properties"]["complexity_score"] == {"type": "number"}
+    assert load("score")["properties"]["complexity_score"]["maximum"] == 1.8  # original intact
+    probs = decoding_schema(load("distribution"))["properties"]["probabilities"]["properties"]
+    assert all(v == {"type": "number"} for v in probs.values())
+    icf = load("icf")
+    assert decoding_schema(icf) == icf  # integer ranges and enums are kept

@@ -47,6 +47,10 @@ class Generation:
 def _structured(schema):
     from vllm import SamplingParams  # noqa: F401  (import check)
 
+    from .schemas import decoding_schema
+
+    schema = decoding_schema(schema)  # xgrammar 0.2.1 mis-compiles number ranges
+
     try:
         from vllm.sampling_params import StructuredOutputsParams
 

@@ -10,12 +10,12 @@ Two steps, so that only aggregates leave the cluster:
            --labels-file /home/pathilda/Anonymization/Labeled_Sample.xlsx \
            --data-dir /home/pathilda/Anonymization/Labeled_chunks \
            --outputs-dir /scratch/pathilda/dr_outputs_labeled_od \
-           --models medgemma-4b qwen35-4b qwen35-27b --placeholder-models qwen35-27b \
+           --models medgemma-4b qwen35-4b qwen35-27b --score-as-uniform-benchmark \
            --out /scratch/pathilda/dr_outputs_labeled_od/deck/deck_data.json
 
 2. ``render`` (anywhere; standard library only): puts the JSON into the deck template.
 
-       python build_labelled_deck.py render --data deck_data.json --out slides.html
+       python build_labelled_deck.py render --data deck_data.json --out slides.html            [--exclude-outputs score] [--inline-libs]
 
    The page loads reveal.js (cdnjs) and Plotly (jsdelivr) from CDNs. ``--inline-libs`` downloads them once and
    embeds them, so the file also works offline (about 5 MB).
@@ -177,18 +177,43 @@ def collect(args):
         return part.groupby(["chunk_id", "profile"], as_index=False)[
             [c for c in ("proxy_regret", "exact_assignment_pct", "n_distinct") if c in part]].mean()
 
-    def by_profile(units):
-        return {p: {"regret": float(g["proxy_regret"].mean()),
-                    "assign": float(g["exact_assignment_pct"].mean())}
-                for p, g in units.groupby("profile")} if not units.empty else {}
+    def or_stats(units):
+        """Mean and 95% CI over (chunk, profile) units."""
+        out = {"n_units": len(units)}
+        if units.empty:
+            return out
+        out["regret_mean"], out["regret_ci"], _ = mean_ci(units["proxy_regret"])
+        out["assign_mean"], out["assign_ci"], _ = mean_ci(units["exact_assignment_pct"])
+        if "n_distinct" in units:
+            out["distinct_mean"] = float(units["n_distinct"].mean())
+        return out
 
+    def accuracy(pairs):
+        if not pairs:
+            return {"n_pairs": 0}
+        acc, qwk, _ = agreement([a for a, _ in pairs], [b for _, b in pairs], ids)
+        return {"n_pairs": len(pairs), "exact_pct": float(acc),
+                "qwk": None if qwk is None or math.isnan(float(qwk)) else float(qwk),
+                "mae": statistics.fmean(abs(a - b) for a, b in pairs)}
+
+    def profile_part(units, profile):
+        return units[units.profile == profile] if not units.empty else units
+
+    def alloc_stats(rows):
+        parsed = rows[rows.parse_ok == True]
+        feasible = parsed[parsed.feasible == True]
+        return {"n_alloc": len(rows), "n_parsed": len(parsed), "n_feasible": len(feasible),
+                **or_stats(feasible)}
+
+    benchmark_output = "score" if args.score_as_uniform_benchmark else None
+    benchmark_values = Counter()
     cells = []
     for model in args.models:
         if model in args.placeholder_models:
             continue  # shown as "results pending" in the deck
         for rung in RUNGS:
             for output in RATING_OUTPUTS:
-                pairs, failed, total = [], 0, 0
+                pairs, failed, total = {}, 0, 0
                 for profile in [None] if rung <= 4 else PROFILE_IDS:
                     path = ws.rating(model, rung, output, profile)
                     if not path.is_file():
@@ -197,23 +222,24 @@ def collect(args):
                         total += 1
                         if not record.get("parse_ok"):
                             failed += 1
-                        elif record.get("client_id") in label_of:
-                            pairs.append((predicted(record, output), label_of[record["client_id"]]))
-                cell = {"model": model, "rung": rung, "output": output,
-                        "n_ratings": total, "n_failed": failed, "n_pairs": len(pairs)}
-                if pairs:
-                    acc, qwk, _ = agreement([a for a, _ in pairs], [b for _, b in pairs], ids)
-                    cell.update(exact_pct=float(acc), qwk=None if qwk is None or math.isnan(float(qwk)) else float(qwk),
-                                mae=statistics.fmean(abs(a - b) for a, b in pairs))
+                            continue
+                        if output == benchmark_output:
+                            benchmark_values[round(float(record["value"]), 4)] += 1
+                        if record.get("client_id") in label_of:
+                            pairs.setdefault(profile, []).append(
+                                (predicted(record, output), label_of[record["client_id"]]))
+                all_pairs = [x for v in pairs.values() for x in v]
                 part = orr[(orr.model == model) & (orr.rung == rung) & (orr.output == output)] \
                     if not orr.empty else orr
                 units = unit_means(part)
-                if not units.empty:
-                    cell["regret_mean"], cell["regret_ci"], _ = mean_ci(units["proxy_regret"])
-                    cell["assign_mean"], cell["assign_ci"], _ = mean_ci(units["exact_assignment_pct"])
-                    cell["distinct_mean"] = float(units["n_distinct"].mean())
-                    cell["by_profile"] = by_profile(units)
-                cell["n_units"], cell["n_expected"] = len(units), n_expected
+                cell = {"model": model, "rung": rung, "output": output,
+                        "n_ratings": total, "n_failed": failed,
+                        **accuracy(all_pairs), **or_stats(units), "n_expected": n_expected}
+                cell["by_profile"] = {
+                    p: {**or_stats(profile_part(units, p)),
+                        **accuracy(pairs.get(None if rung <= 4 else p, [])),
+                        "n_expected": len(chunk_ids)}
+                    for p in PROFILE_IDS}
                 statuses = Counter()
                 for chunk_id in chunk_ids:
                     for profile in PROFILE_IDS:
@@ -227,15 +253,28 @@ def collect(args):
             cell = {"model": model, "rung": rung, "output": "allocation", "n_expected": n_expected,
                     "n_alloc": len(part)}
             if not part.empty:
-                parsed = part[part.parse_ok == True]
-                feasible = parsed[parsed.feasible == True]
-                cell.update(n_parsed=len(parsed), n_feasible=len(feasible))
-                if not feasible.empty:
-                    cell["regret_mean"], cell["regret_ci"], _ = mean_ci(feasible["proxy_regret"])
-                    cell["assign_mean"], cell["assign_ci"], _ = mean_ci(feasible["exact_assignment_pct"])
-                    cell["by_profile"] = by_profile(feasible)
-                cell["n_units"] = len(feasible)
+                cell.update(alloc_stats(part))
+                cell["by_profile"] = {p: {**alloc_stats(part[part.profile == p]),
+                                          "n_expected": len(chunk_ids)} for p in PROFILE_IDS}
             cells.append(cell)
+
+    uniform = None
+    if benchmark_output:
+        part = orr[orr.output == benchmark_output] if not orr.empty else orr
+        cells = [c for c in cells if c["output"] != benchmark_output]
+        if part.empty:
+            print("warning: no score OR rows; no uniform benchmark", file=sys.stderr)
+        else:
+            per = part.groupby(["model", "rung", "chunk_id", "profile"])["proxy_regret"].mean()
+            spread = float(per.groupby(["chunk_id", "profile"]).agg(lambda v: v.max() - v.min()).max())
+            units = unit_means(part)
+            uniform = {**or_stats(units), "max_spread": spread,
+                       "rating_values": {str(k): n for k, n in benchmark_values.items()},
+                       "by_profile": {p: or_stats(profile_part(units, p)) for p in PROFILE_IDS}}
+            if len(benchmark_values) != 1 or spread > 1e-6:
+                print(f"warning: score ratings are not all equal ({dict(benchmark_values.most_common(5))}; regret "
+                      f"spread {spread:.3g}); the 'equal-complexity benchmark' is not valid",
+                      file=sys.stderr)
 
     optimum = {}
     if not orr.empty:
@@ -261,6 +300,7 @@ def collect(args):
                          "tolerance": opt["optimality_tolerance"]},
         "labels": labels,
         "benchmark_optimum": optimum,
+        "uniform_benchmark": uniform,
         "cells": cells,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -273,6 +313,9 @@ def collect(args):
 # ----------------------------------------------------------------------------- render
 def render(args):
     data = json.loads(Path(args.data).read_text(encoding="utf-8"))
+    if args.exclude_outputs:
+        data["excluded_outputs"] = sorted(set(args.exclude_outputs))
+        data["cells"] = [c for c in data["cells"] if c["output"] not in data["excluded_outputs"]]
     page = TEMPLATE.read_text(encoding="utf-8")
     if PLACEHOLDER not in page:
         raise SystemExit(f"{TEMPLATE} has no {PLACEHOLDER} placeholder")
@@ -312,10 +355,15 @@ def main(argv=None):
                    help="models listed in --models whose results are not ready: shown as pending")
     c.add_argument("--pending-models", nargs="*", default=["medgemma-27b"],
                    help="models not in the deck yet (named in caveats and next steps)")
+    c.add_argument("--score-as-uniform-benchmark", action="store_true",
+                   help="score ratings are all identical (xgrammar range bug): drop the score "
+                        "output and use its OR results as the equal-complexity benchmark")
     c.add_argument("--out", type=Path, required=True)
     r = sub.add_parser("render", help="build the HTML deck from deck_data.json")
     r.add_argument("--data", required=True)
     r.add_argument("--out", required=True)
+    r.add_argument("--exclude-outputs", nargs="*", default=[], choices=["label", "distribution", "score"],
+                   help="leave these rating outputs out of every slide (e.g. score)")
     r.add_argument("--inline-libs", action="store_true", help="embed reveal.js and Plotly")
     args = p.parse_args(argv)
     return collect(args) if args.command == "collect" else render(args)
