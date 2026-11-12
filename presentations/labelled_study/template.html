@@ -315,7 +315,7 @@ html, body { background: var(--bg); }
 <!-- 12. Results B -->
 <section>
   <h2><span class="kicker">Results</span><span class="view-tag">VIEW B</span>Models side by side in every cell</h2>
-  <p class="lede">Colour = model; shape = initial caseload (● balanced, ■ unbalanced, ◆ highly unbalanced); 95% intervals over chunks. LLM allocation has its own axis.</p>
+  <p class="lede">Box = spread over decision instances (chunk × initial caseload); line = median, dashed tick = mean, dots = instances. LLM allocation has its own axis.</p>
   <div class="ctl" data-for="B"></div>
   <div class="plot" id="plot-B" style="height:690px"></div>
 </section>
@@ -465,7 +465,7 @@ function draw(id, traces, layout) { Plotly.react(id, traces, layout, CONFIG); }
 // ------------------------------------------------------------------ controls
 const state = {
   labels: { unit: "n" },
-  A: { metric: "regret", mode: "value", prof: "all" }, B: { metric: "regret", split: "split" },
+  A: { metric: "regret", mode: "value", prof: "all" }, B: { metric: "regret", prof: "all" },
   C: { metric: "regret", group: "output", prof: "all" }, D: { x: "qwk", y: "regret", prof: "all" }, E: { prof: "all" },
 };
 const RENDER = {};
@@ -649,6 +649,18 @@ function benchVal(metric, prof) {
   const v = METRICS[metric].get(s);
   return v === undefined || v === null ? null : v;
 }
+const UNIT_KEY = { regret: "regret", assign: "assign", exact: "exact_pct", qwk: "qwk", mae: "mae", distinct: "distinct" };
+// Per-instance values (chunk x load profile) behind a cell, for box plots. Rungs 1-4 ratings do not
+// depend on the load profile, so their accuracy values are counted once per chunk.
+function unitVals(metric, c, prof) {
+  const M = METRICS[metric];
+  if (!c || !c.units || ((M.ratingOnly || M.orOnly) && c.output === "allocation")) return [];
+  let rows = c.units.filter(u => !prof || prof === "all" || u.profile === prof);
+  if (M.ratingOnly && c.rung <= 4 && (!prof || prof === "all")) rows = rows.filter(u => u.profile === PROFILES[0]);
+  return rows.map(u => u[UNIT_KEY[metric]]).filter(v => v !== null && v !== undefined && !Number.isNaN(v));
+}
+const boxStyle = color => ({ fillcolor: color + "33", line: { color, width: 1.6 }, marker: { color, size: 4, opacity: 0.7 },
+  boxpoints: "all", jitter: 0.35, pointpos: 0, boxmean: true, whiskerwidth: 0.6 });
 function nText(s) {
   if (!s) return "not run";
   if (s.output === "allocation") return `${s.n_feasible ?? 0}/${s.n_expected} feasible allocations`;
@@ -764,59 +776,50 @@ const profText = p => p === "all" ? "all initial caseloads" : PROFILE_NAMES[p].t
 // ------------------------------------------------------------------ view B: small multiples per cell
 buildControls("B", [
   { label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae"]) },
-  { label: "Initial caseload", k: "split", options: [["split", "One marker per caseload"], ["all", "Pooled"]] },
+  { label: "Initial caseload", k: "prof", options: PROFILE_OPTIONS },
 ]);
 RENDER.B = function () {
-  const { metric, split } = state.B, M = METRICS[metric], cols = colsFor(metric);
-  const profs = split === "split" ? PROFILES : ["all"], nM = MODELS.length;
-  const block = nM + (profs.length > 1 ? 0.8 : 0);
-  const yOf = (pi, mi) => pi * block + mi, yMax = yOf(profs.length - 1, nM - 1);
+  const { metric, prof } = state.B, M = METRICS[metric], cols = colsFor(metric);
   const nR = RUNGS.length, nC = cols.length, left = 0.12, gx = 0.035, gy = 0.022, top = 0.9;
   const w = (1 - left - gx * (nC - 1)) / nC, h = (top - gy * (nR - 1)) / nR;
+  const names = MODELS.map(m => m.short), bench = benchVal(metric, prof);
   const rangeFor = isAlloc => {
     const vals = [];
-    MODELS.forEach(m => RUNGS.forEach(r => cols.filter(o => (o.key === "allocation") === isAlloc).forEach(o => profs.forEach(p => {
-      const c = cell(m.key, r.k, o.key), x = value(metric, c, p), e = ciOf(metric, c, p) || 0; if (x !== null) vals.push(x - e, x + e); }))));
-    profs.forEach(p => { const b = benchVal(metric, p); if (b !== null) vals.push(b); });
-    return rangeOf(vals, M);
+    MODELS.forEach(m => RUNGS.forEach(r => cols.filter(o => (o.key === "allocation") === isAlloc).forEach(o => vals.push(...unitVals(metric, cell(m.key, r.k, o.key), prof)))));
+    if (bench !== null) vals.push(bench);
+    return rangeOf(vals, M, 0.05);
   };
   const ranges = { rating: rangeFor(false), alloc: rangeFor(true) };
   const traces = [], ann = [], shapes = [];
-  const layout = { ...BASE_LAYOUT(), margin: { l: 10, r: 10, t: 34, b: 60 }, showlegend: true, legend: { orientation: "h", x: left, y: 1.0, yanchor: "bottom", font: { size: 15 }, traceorder: "normal" } };
+  const layout = { ...BASE_LAYOUT(), margin: { l: 10, r: 10, t: 34, b: 60 }, showlegend: true,
+    legend: { orientation: "h", x: left, y: 1.0, yanchor: "bottom", font: { size: 15 }, traceorder: "normal" } };
   let idx = 0;
   RUNGS.forEach((r, ri) => cols.forEach((o, ci) => {
     idx += 1;
     const sfx = idx === 1 ? "" : idx, x0 = left + ci * (w + gx), y1 = top - ri * (h + gy), isAlloc = o.key === "allocation";
     layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], anchor: `y${sfx}`, range: isAlloc ? ranges.alloc : ranges.rating, showticklabels: ri === nR - 1, fixedrange: true, nticks: 5, zeroline: !!M.zero });
-    layout[`yaxis${sfx}`] = axis({ domain: [y1 - h, y1], anchor: `x${sfx}`, showticklabels: false, showgrid: false, range: [yMax + 0.7, -0.7], fixedrange: true, autorange: false, zeroline: false });
+    layout[`yaxis${sfx}`] = axis({ domain: [y1 - h, y1], anchor: `x${sfx}`, type: "category", categoryorder: "array", categoryarray: names, autorange: "reversed",
+      showticklabels: false, showgrid: false, fixedrange: true, zeroline: false });
     if (isAlloc && r.k < 5) {
       layout[`xaxis${sfx}`].visible = false; layout[`yaxis${sfx}`].visible = false;
       ann.push({ text: "needs clinicians", xref: `x${sfx} domain`, yref: `y${sfx} domain`, x: 0.5, y: 0.5, showarrow: false, font: { size: 13, color: MUTED } });
       traces.push({ type: "scatter", x: [], y: [], xaxis: `x${sfx}`, yaxis: `y${sfx}`, showlegend: false, hoverinfo: "skip" });
       return;
     }
-    profs.forEach((p, pi) => {
-      if (profs.length > 1 && pi % 2 === 1) shapes.push({ type: "rect", xref: `x${sfx} domain`, yref: `y${sfx}`, x0: 0, x1: 1, y0: yOf(pi, 0) - 0.45, y1: yOf(pi, nM - 1) + 0.45, fillcolor: "#eaf0f8", line: { width: 0 }, layer: "below" });
-      const b = benchVal(metric, p);
-      if (b !== null) shapes.push(benchLine(b, b, yOf(pi, 0) - 0.5, yOf(pi, nM - 1) + 0.5, `x${sfx}`, `y${sfx}`));
-    });
-    MODELS.forEach((m, mi) => {
-      const c = cell(m.key, r.k, o.key);
-      const xsv = profs.map(p => value(metric, c, p)), es = profs.map(p => ciOf(metric, c, p) || 0);
-      traces.push({ type: "scatter", mode: "markers", x: xsv, y: profs.map((p, pi) => yOf(pi, mi)), xaxis: `x${sfx}`, yaxis: `y${sfx}`,
-        marker: { color: m.color, size: profs.length > 1 ? 8 : 11, symbol: profs.map(p => p === "all" ? "circle" : PROFILE_SYMBOL[p]), line: { color: SURF, width: 1.5 } },
-        error_x: { type: "data", array: es, visible: es.some(Boolean), color: m.color, thickness: 1.6, width: 0 },
-        name: mName(m), legendgroup: m.key, showlegend: false,
-        hovertemplate: profs.map(p => hoverFor(metric, m, r.k, o, c, p) + "<extra></extra>") });
+    if (bench !== null) shapes.push(benchLine(bench, bench, 0, 1, `x${sfx}`, `y${sfx} domain`));
+    MODELS.forEach(m => {
+      const vals = unitVals(metric, cell(m.key, r.k, o.key), prof);
+      traces.push({ type: "box", orientation: "h", x: vals, y: vals.map(() => m.short), xaxis: `x${sfx}`, yaxis: `y${sfx}`, ...boxStyle(m.color),
+        width: 0.7, name: mName(m), legendgroup: m.key, showlegend: false,
+        hoverinfo: "x", hoverlabel: { namelength: 0 } });
     });
     if (ri === 0) ann.push({ text: `<b>${o.name}</b>${isAlloc ? ' <span style="font-size:13px">(own scale)</span>' : ""}`, xref: "paper", yref: "paper", x: x0 + w / 2, y: top + 0.005, yanchor: "bottom", showarrow: false, font: { size: 17, color: INK } });
     if (ci === 0) ann.push({ text: `<b>Rung ${r.k}</b><br><span style="font-size:13px;color:${INK2}">${RUNGS[ri].name}</span>`, xref: "paper", yref: "paper", x: left - 0.01, xanchor: "right", y: y1 - h / 2, showarrow: false, align: "right", font: { size: 15, color: INK } });
   }));
-  MODELS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), marker: { color: m.color, size: 11 }, hoverinfo: "skip" }));
-  if (profs.length > 1) PROFILES.forEach(p => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: PROFILE_NAMES[p], marker: { color: "#8b8b86", size: 10, symbol: PROFILE_SYMBOL[p] }, hoverinfo: "skip" }));
-  traces.push(...benchLegend(profs.some(p => benchVal(metric, p) !== null)));
+  MODELS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), marker: { color: m.color, size: 11, symbol: "square" }, hoverinfo: "skip" }));
+  traces.push(...benchLegend(bench !== null));
   const ratingCols = cols.filter(o => o.key !== "allocation").length;
-  ann.push({ text: `${M.label}${betterText(M)}`, xref: "paper", yref: "paper", x: left + (ratingCols * (w + gx) - gx) / 2, y: -0.095, showarrow: false, font: { size: 15, color: INK2 } });
+  ann.push({ text: `${M.label}${betterText(M)} · ${profText(prof)}`, xref: "paper", yref: "paper", x: left + (ratingCols * (w + gx) - gx) / 2, y: -0.095, showarrow: false, font: { size: 15, color: INK2 } });
   layout.annotations = ann; layout.shapes = shapes;
   draw("plot-B", traces, layout);
 };
@@ -833,7 +836,7 @@ RENDER.C = function () {
   const ready = MODELS.filter(m => !m.placeholder), bench = benchVal(metric, prof);
   const valsFor = outs => {
     const vals = [];
-    ready.forEach(m => RUNGS.forEach(r => outs.forEach(o => { const c = cell(m.key, r.k, o.key), x = value(metric, c, prof), e = ciOf(metric, c, prof) || 0; if (x !== null) vals.push(x - e, x + e); })));
+    ready.forEach(m => RUNGS.forEach(r => outs.forEach(o => vals.push(...unitVals(metric, cell(m.key, r.k, o.key), prof)))));
     if (bench !== null) vals.push(bench);
     return vals;
   };
@@ -865,14 +868,22 @@ RENDER.C = function () {
       return;
     }
     if (bench !== null) shapes.push(benchLine(0.6, 6.4, bench, bench, `x${sfx}`, `y${sfx}`));
-    p.series.forEach(({ m, o }) => {
-      const pts = RUNGS.map(r => { const c = cell(m.key, r.k, o.key); return { r: r.k, v: value(metric, c, prof), e: ciOf(metric, c, prof), c }; }).filter(q => q.v !== null);
+    const nS = p.series.length, bw = Math.min(0.22, 0.75 / nS);
+    p.series.forEach(({ m, o }, si) => {
+      const off = (si - (nS - 1) / 2) * bw * 1.1;
       const color = group === "output" ? m.color : o.color, lk = group === "output" ? m.key : o.key;
-      traces.push({ type: "scatter", mode: "lines+markers", x: pts.map(q => q.r), y: pts.map(q => q.v), xaxis: `x${sfx}`, yaxis: `y${sfx}`,
-        line: { color, width: 2.5, dash: group === "output" ? "solid" : o.dash }, marker: { color, size: 9, symbol: group === "output" ? "circle" : o.symbol, line: { color: SURF, width: 1.5 } },
-        error_y: { type: "data", array: pts.map(q => q.e || 0), visible: pts.some(q => q.e), color, thickness: 1.5, width: 4 },
-        name: group === "output" ? mName(m) : o.name, legendgroup: lk, showlegend: !seen.has(lk),
-        hovertemplate: pts.map(q => hoverFor(metric, m, q.r, o, q.c, prof) + "<extra></extra>") });
+      const xs = [], ys = [], means = [];
+      RUNGS.forEach(r => {
+        const c = cell(m.key, r.k, o.key), vals = unitVals(metric, c, prof);
+        vals.forEach(v => { xs.push(r.k + off); ys.push(v); });
+        const mean = value(metric, c, prof);
+        if (vals.length && mean !== null) means.push({ x: r.k + off, y: mean, r: r.k, c });
+      });
+      traces.push({ type: "box", x: xs, y: ys, xaxis: `x${sfx}`, yaxis: `y${sfx}`, ...boxStyle(color), width: bw, boxpoints: "outliers",
+        name: group === "output" ? mName(m) : o.name, legendgroup: lk, showlegend: !seen.has(lk), hoverinfo: "y" });
+      traces.push({ type: "scatter", mode: "lines+markers", x: means.map(q => q.x), y: means.map(q => q.y), xaxis: `x${sfx}`, yaxis: `y${sfx}`,
+        line: { color, width: 1.5, dash: group === "output" ? "solid" : o.dash }, marker: { color, size: 6, symbol: group === "output" ? "circle" : o.symbol },
+        legendgroup: lk, showlegend: false, hovertemplate: means.map(q => hoverFor(metric, m, q.r, o, q.c, prof) + "<extra></extra>") });
       seen.add(lk);
     });
   });
@@ -936,12 +947,10 @@ RENDER.E = function () {
     yaxis: axis({ title: { text: "instances" }, range: [0, nExp * 1.15] }), xaxis: axis({ showgrid: false }), legend: { orientation: "h", x: 0, y: -0.1 }, margin: { l: 60, r: 10, t: 60, b: 70 } });
   const methods = OUTPUTS, traces = [], ready = MODELS.filter(m => !m.placeholder), b = benchVal("regret", prof);
   rungs.forEach((r, ri) => methods.forEach((o, oi) => {
-    const pts = ready.map((m, mi) => ({ m, mi, c: cell(m.key, r, o.key) })).filter(q => value("regret", q.c, prof) !== null);
-    traces.push({ type: "scatter", mode: "markers", xaxis: ri ? "x2" : "x", yaxis: ri ? "y2" : "y",
-      x: pts.map(q => value("regret", q.c, prof)), y: pts.map(q => q.mi + (oi - (methods.length - 1) / 2) * 0.2),
-      error_x: { type: "data", array: pts.map(q => ciOf("regret", q.c, prof) || 0), color: o.color, thickness: 1.5, width: 0 },
-      marker: { color: o.color, symbol: o.symbol, size: 14, line: { color: SURF, width: 1.5 } }, name: o.name, legendgroup: o.key, showlegend: ri === 0,
-      hovertemplate: pts.map(q => hoverFor("regret", q.m, r, o, q.c, prof) + "<extra></extra>") });
+    const xs = [], ys = [];
+    ready.forEach((m, mi) => unitVals("regret", cell(m.key, r, o.key), prof).forEach(v => { xs.push(v); ys.push(mi + (oi - (methods.length - 1) / 2) * 0.27); }));
+    traces.push({ type: "box", orientation: "h", xaxis: ri ? "x2" : "x", yaxis: ri ? "y2" : "y", x: xs, y: ys, ...boxStyle(o.color), width: 0.22,
+      name: o.name, legendgroup: o.key, showlegend: ri === 0, hoverinfo: "x" });
   }));
   traces.push(...benchLegend(b !== null));
   const yax = r => axis({ showgrid: false, autorange: "reversed", zeroline: false, title: { text: `Rung ${r}` }, tickvals: ready.map((_, i) => i), ticktext: ready.map(m => m.name), tickfont: { size: 15, color: INK } });
@@ -950,7 +959,7 @@ RENDER.E = function () {
     xaxis: axis({ title: { text: "" }, rangemode: "tozero" }), xaxis2: axis({ title: { text: "regret (lower is better)" }, rangemode: "tozero", matches: "x" }),
     yaxis: yax(5), yaxis2: yax(6),
     shapes: b !== null ? [benchLine(b, b, 0, 1, "x", "y domain"), benchLine(b, b, 0, 1, "x2", "y2 domain")] : [],
-    legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom" }, margin: { l: 150, r: 10, t: 100, b: 60 } });
+    legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom" }, margin: { l: 150, r: 10, t: 100, b: 60 }, boxmode: "overlay" });
 };
 
 // ------------------------------------------------------------------ coverage

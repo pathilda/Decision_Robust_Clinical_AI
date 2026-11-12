@@ -196,6 +196,23 @@ def collect(args):
                 "qwk": None if qwk is None or math.isnan(float(qwk)) else float(qwk),
                 "mae": statistics.fmean(abs(a - b) for a, b in pairs)}
 
+    def unit_rows(units, chunk_pairs=None, rung=None):
+        """One row per (chunk, profile) instance: the values the box plots are drawn from."""
+        rows = {}
+        for r in units.itertuples(index=False):
+            row = rows.setdefault((str(r.chunk_id), r.profile), {})
+            row.update(regret=float(r.proxy_regret), assign=float(r.exact_assignment_pct))
+            if hasattr(r, "n_distinct"):
+                row["distinct"] = float(r.n_distinct)
+        for chunk in chunk_ids if chunk_pairs is not None else []:
+            for profile in PROFILE_IDS:
+                found = chunk_pairs.get((None if rung <= 4 else profile, chunk))
+                if found:
+                    acc = accuracy(found)
+                    rows.setdefault((chunk, profile), {}).update(
+                        {k: acc.get(k) for k in ("exact_pct", "qwk", "mae")})
+        return [{"chunk": c, "profile": pr, **v} for (c, pr), v in sorted(rows.items())]
+
     def profile_part(units, profile):
         return units[units.profile == profile] if not units.empty else units
 
@@ -213,7 +230,7 @@ def collect(args):
             continue  # shown as "results pending" in the deck
         for rung in RUNGS:
             for output in RATING_OUTPUTS:
-                pairs, failed, total = {}, 0, 0
+                pairs, chunk_pairs, failed, total = {}, {}, 0, 0
                 for profile in [None] if rung <= 4 else PROFILE_IDS:
                     path = ws.rating(model, rung, output, profile)
                     if not path.is_file():
@@ -226,15 +243,18 @@ def collect(args):
                         if output == benchmark_output:
                             benchmark_values[round(float(record["value"]), 4)] += 1
                         if record.get("client_id") in label_of:
-                            pairs.setdefault(profile, []).append(
-                                (predicted(record, output), label_of[record["client_id"]]))
+                            pair = (predicted(record, output), label_of[record["client_id"]])
+                            pairs.setdefault(profile, []).append(pair)
+                            chunk = normalize_id(record.get("chunk_id", str(record["key"]).split("|")[0]))
+                            chunk_pairs.setdefault((profile, chunk), []).append(pair)
                 all_pairs = [x for v in pairs.values() for x in v]
                 part = orr[(orr.model == model) & (orr.rung == rung) & (orr.output == output)] \
                     if not orr.empty else orr
                 units = unit_means(part)
                 cell = {"model": model, "rung": rung, "output": output,
                         "n_ratings": total, "n_failed": failed,
-                        **accuracy(all_pairs), **or_stats(units), "n_expected": n_expected}
+                        **accuracy(all_pairs), **or_stats(units), "n_expected": n_expected,
+                        "units": unit_rows(units, chunk_pairs, rung)}
                 cell["by_profile"] = {
                     p: {**or_stats(profile_part(units, p)),
                         **accuracy(pairs.get(None if rung <= 4 else p, [])),
@@ -254,6 +274,8 @@ def collect(args):
                     "n_alloc": len(part)}
             if not part.empty:
                 cell.update(alloc_stats(part))
+                feasible = part[(part.parse_ok == True) & (part.feasible == True)]
+                cell["units"] = unit_rows(feasible)
                 cell["by_profile"] = {p: {**alloc_stats(part[part.profile == p]),
                                           "n_expected": len(chunk_ids)} for p in PROFILE_IDS}
             cells.append(cell)
@@ -268,7 +290,7 @@ def collect(args):
             per = part.groupby(["model", "rung", "chunk_id", "profile"])["proxy_regret"].mean()
             spread = float(per.groupby(["chunk_id", "profile"]).agg(lambda v: v.max() - v.min()).max())
             units = unit_means(part)
-            uniform = {**or_stats(units), "max_spread": spread,
+            uniform = {**or_stats(units), "max_spread": spread, "units": unit_rows(units),
                        "rating_values": {str(k): n for k, n in benchmark_values.items()},
                        "by_profile": {p: or_stats(profile_part(units, p)) for p in PROFILE_IDS}}
             if len(benchmark_values) != 1 or spread > 1e-6:
