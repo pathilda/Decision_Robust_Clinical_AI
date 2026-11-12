@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinician-Labelled Pilot</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reset.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css">
+<style>
+:root {
+  --bg: #fcfdff; --surface: #fcfcfb; --ink: #24334a; --ink-2: #546b86; --muted: #898781;
+  --accent: #1b4681; --accent-soft: #ebf2fa; --line: #d8e5f5; --grid: #e1e0d9;
+  --teal: #337667; --teal-soft: #edf5f2; --warn: #9a6114; --warn-soft: #fff6e8;
+  --m1: #2a78d6; --m2: #eb6834; --m3: #1baf7a;
+  --o-label: #6250d6; --o-distribution: #008300; --o-score: #e87ba4; --o-allocation: #eda100;
+}
+html, body { background: var(--bg); }
+.reveal { font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: var(--ink); font-size: 26px; }
+.reveal .slides { text-align: left; }
+.reveal .slides section { height: 100%; }
+.reveal h1, .reveal h2, .reveal h3 { font-family: inherit; color: var(--accent); font-weight: 700; letter-spacing: 0; text-transform: none; }
+.reveal h1 { font-size: 64px; line-height: 1.12; margin: 0 0 22px; }
+.reveal h2 { font-size: 40px; line-height: 1.15; margin: 0 0 22px; padding-bottom: 10px; border-bottom: 3px solid var(--line); }
+.reveal h2 .kicker { display: block; font-size: 18px; font-weight: 600; color: var(--teal); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+.reveal h3 { font-size: 24px; margin: 0 0 10px; }
+.reveal p, .reveal li { line-height: 1.42; }
+.reveal strong { color: var(--accent); }
+.reveal b, .reveal strong { font-weight: 700; }
+.reveal sub { vertical-align: sub; font-size: .65em; }
+.reveal sup { vertical-align: super; font-size: .65em; }
+.reveal ul { margin: 0 0 0 1.1em; }
+.reveal li { margin-bottom: .35em; }
+.small { font-size: 18px; color: var(--ink-2); }
+.note { font-size: 17px; color: var(--ink-2); margin-top: 10px; }
+.cols { display: grid; gap: 28px; }
+.cols.c2 { grid-template-columns: 1fr 1fr; }
+.cols.c37 { grid-template-columns: 1.15fr 1fr; }
+.cols.c73 { grid-template-columns: 1fr 1.25fr; }
+.statement { background: var(--accent-soft); border-left: 5px solid var(--accent); border-radius: 0 12px 12px 0; padding: 16px 22px; }
+.statement.teal { background: var(--teal-soft); border-left-color: var(--teal); }
+.statement.warn { background: var(--warn-soft); border-left-color: #b77827; }
+.block-title { font-weight: 700; color: var(--accent); margin: 0 0 4px; font-size: 20px; }
+.synthetic-banner { position: fixed; top: 10px; right: 14px; z-index: 50; background: #fff1e6; color: #8a3b12; border: 1px solid #f0b48f; border-radius: 8px; padding: 6px 12px; font: 600 14px "Segoe UI", sans-serif; }
+
+/* title */
+.title-slide { padding-top: 120px; }
+.title-slide .eyebrow { color: var(--teal); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 20px; margin-bottom: 18px; }
+.title-slide .subtitle { font-size: 30px; color: var(--ink-2); margin: 0 0 46px; max-width: 1250px; }
+.title-strip { display: flex; gap: 14px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: white; border-radius: 999px; padding: 6px 14px; font-size: 18px; color: var(--ink); }
+.chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* framework pipeline */
+.flow { display: grid; grid-template-columns: 1fr 34px 1.05fr 34px 2.5fr 34px 1fr 34px 1fr; align-items: stretch; margin: 56px 0 0; }
+.flow .arrow { display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 30px; }
+.node { border: 2px solid var(--accent); border-radius: 14px; background: var(--accent-soft); padding: 16px 12px; text-align: center; cursor: pointer; transition: background .15s, box-shadow .15s; display: flex; flex-direction: column; justify-content: center; font-size: 21px; min-height: 180px; }
+.node b { display: block; font-size: 26px; color: var(--accent); margin-bottom: 8px; }
+.node span { font-size: 19px; color: var(--ink-2); line-height: 1.3; }
+.node.green { background: #def2e7; border-color: var(--teal); }
+.node.green b { color: var(--teal); }
+.node:hover, .node.is-active { box-shadow: 0 0 0 4px #1b468133; background: #e0ebf9; }
+.node.green:hover, .node.green.is-active { background: #cdebdb; }
+.coupled { border: 2px dashed var(--accent); border-radius: 18px; padding: 14px; display: grid; grid-template-columns: 1fr 30px 1fr; gap: 0; position: relative; }
+.coupled .arrow { font-size: 26px; }
+.coupled-caption { position: absolute; left: 0; right: 0; bottom: -34px; text-align: center; font-size: 17px; font-weight: 600; color: var(--accent); }
+.bypass { margin: 64px 0 0; display: grid; grid-template-columns: 1fr 34px 1.05fr 34px 2.5fr 34px 1fr 34px 1fr; }
+.bypass .node { grid-column: 5; border-style: dashed; background: #fff8e6; border-color: #b77827; padding: 10px; min-height: 110px; }
+.bypass .node b { color: #8a5a10; }
+.detail { min-height: 150px; margin-top: 40px; padding: 18px 24px; line-height: 1.45; background: #f1f5fa; border-left: 4px solid var(--teal); border-radius: 0 10px 10px 0; font-size: 21px; }
+.detail b { display: block; color: var(--accent); font-size: 24px; margin-bottom: 6px; }
+
+/* ICF model */
+.icf-wrap { display: grid; grid-template-columns: 1.25fr 1fr; gap: 30px; }
+.icf-svg { width: 100%; height: auto; }
+.icf-svg .box { cursor: pointer; }
+.icf-svg .box rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; rx: 12; transition: fill .15s; }
+.icf-svg .box.context rect { fill: #def2e7; stroke: var(--teal); }
+.icf-svg .box.condition rect { fill: #f5f7fb; stroke: #8aa0bd; stroke-dasharray: 6 4; }
+.icf-svg .box:hover rect, .icf-svg .box.is-active rect { fill: #d5e4f7; }
+.icf-svg .box.context:hover rect, .icf-svg .box.context.is-active rect { fill: #c6e7d5; }
+.icf-svg text { font-family: "Segoe UI", sans-serif; fill: var(--ink); }
+.icf-svg .t1 { font-size: 21px; font-weight: 700; fill: var(--accent); }
+.icf-svg .context .t1 { fill: var(--teal); }
+.icf-svg .t2 { font-size: 15px; fill: var(--ink-2); }
+.icf-svg line { stroke: #6f87a8; stroke-width: 2; marker-start: url(#arr); marker-end: url(#arr); }
+.qual { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 8px; }
+.qual div { border-radius: 8px; padding: 6px 4px; text-align: center; font-size: 15px; line-height: 1.2; border: 1px solid var(--line); background: white; }
+.qual div b { display: block; font-size: 20px; color: var(--accent); }
+
+/* ICF extraction */
+.extract { display: grid; grid-template-columns: 0.9fr 1fr 1.25fr; gap: 22px; align-items: start; }
+.card { border: 1px solid var(--line); border-radius: 14px; background: white; padding: 16px 18px; box-shadow: 0 2px 8px #1b46810d; }
+.card h3 { margin-bottom: 8px; }
+.card ul { font-size: 21px; }
+.status-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.status { font-size: 15px; border-radius: 6px; padding: 3px 8px; font-weight: 600; }
+.s-known { background: #dde9fb; color: #1c4f95; }
+.s-queried { background: #fdf0d6; color: #7a4d00; }
+.s-noconcern { background: #e2f3e8; color: #1d6b3a; }
+.s-nd { background: #eeeeec; color: #52514e; }
+.profile-row { display: grid; grid-template-columns: 1.15fr .8fr .5fr; gap: 8px; align-items: center; font-size: 19px; padding: 10px 0; border-bottom: 1px solid #eef2f7; }
+.profile-row:last-child { border-bottom: 0; }
+.profile-row .status { justify-self: start; }
+.profile-row i { color: var(--ink-2); font-size: 14px; grid-column: 1 / -1; font-style: italic; margin-top: -2px; }
+.qchip { justify-self: end; font-weight: 700; color: var(--accent); font-size: 16px; }
+.illustrative { font-size: 14px; color: #8a3b12; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+
+/* classes */
+.ramp { height: 12px; border-radius: 6px; background: linear-gradient(90deg, #b7d3f6, #104281); margin: 4px 0 6px; }
+.ramp-labels { display: flex; justify-content: space-between; font-size: 16px; color: var(--ink-2); margin-bottom: 16px; }
+.classes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.class-card { border-radius: 14px; border: 1px solid var(--line); background: white; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; transition: box-shadow .15s, transform .15s; }
+.class-card:hover, .class-card.is-active { box-shadow: 0 0 0 3px var(--accent); }
+.class-card header { padding: 12px 14px; color: white; display: flex; justify-content: space-between; align-items: baseline; }
+.class-card header b { font-size: 25px; }
+.class-card header span { font-size: 17px; opacity: .95; }
+.class-card .body { padding: 14px 16px; font-size: 21px; min-height: 190px; line-height: 1.35; flex: 1; }
+.class-card .plan { padding: 10px 14px; font-size: 16px; min-height: 92px; background: #f5f8fc; color: var(--ink-2); border-top: 1px solid var(--line); }
+.class-detail { margin-top: 20px; min-height: 150px; padding: 16px 22px; background: #f1f5fa; border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; font-size: 20px; line-height: 1.4; }
+.class-detail b { color: var(--accent); }
+
+/* KPI tiles */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 14px; }
+.kpi { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 12px 18px; }
+.kpi .v { font-size: 44px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+.kpi .l { font-size: 17px; color: var(--ink-2); line-height: 1.3; }
+
+/* plots + controls */
+.plot { width: 100%; background: transparent; }
+.ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+.ctl .lbl { font-size: 15px; color: var(--ink-2); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
+.ctl .sep { width: 1px; height: 26px; background: var(--line); margin: 0 10px; }
+.ctl button { font: 600 16px "Segoe UI", sans-serif; border: 1px solid #bacde5; border-radius: 8px; padding: 6px 12px; background: white; color: var(--accent); cursor: pointer; }
+.ctl button[aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
+.view-tag { display: inline-block; font-size: 15px; font-weight: 700; color: white; background: var(--teal); border-radius: 6px; padding: 2px 9px; margin-right: 8px; vertical-align: 3px; letter-spacing: .04em; }
+.lede { font-size: 19px; color: var(--ink-2); margin: -10px 0 10px; }
+.highlights { font-size: 17px; color: var(--ink); background: var(--teal-soft); border-left: 4px solid var(--teal); border-radius: 0 8px 8px 0; padding: 8px 14px; margin-top: 6px; }
+.highlights b { color: var(--teal); }
+
+/* configuration matrix */
+.matrix { display: grid; grid-template-columns: 300px repeat(3, 1fr) 1fr; grid-auto-rows: minmax(82px, auto); gap: 9px; }
+.mx-head, .mx-row, .mx-cell, .mx-corner { border-radius: 10px; padding: 10px 12px; }
+.mx-corner { font-size: 15px; color: var(--ink-2); display: flex; align-items: flex-end; }
+.mx-head { background: white; border: 1px solid var(--line); border-top: 6px solid var(--c); cursor: pointer; }
+.mx-head b { display: block; font-size: 24px; color: var(--ink); }
+.mx-head span { font-size: 17px; color: var(--ink-2); }
+.mx-row { background: var(--accent-soft); border: 1px solid var(--line); cursor: pointer; }
+.mx-row b { font-size: 21px; color: var(--accent); }
+.mx-row .ladder { display: flex; gap: 3px; margin-top: 6px; }
+.mx-row .ladder i { flex: 1; height: 7px; border-radius: 4px; background: #d4dceb; }
+.mx-row .ladder i.on { background: var(--accent); }
+.mx-cell { background: white; border: 1px solid var(--line); cursor: pointer; font-size: 18px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; transition: box-shadow .12s, background .12s; }
+.mx-cell .sw { width: 10px; height: 34px; border-radius: 4px; background: var(--c); flex: none; }
+.mx-cell.na { background: repeating-linear-gradient(135deg, #f4f4f2 0 8px, #fbfbfa 8px 16px); cursor: default; justify-content: center; color: var(--muted); }
+.mx-cell:not(.na):hover, .mx-cell.is-active, .mx-head:hover, .mx-row:hover, .mx-head.is-active, .mx-row.is-active { box-shadow: 0 0 0 3px var(--accent); }
+.mx-detail { margin-top: 14px; min-height: 96px; padding: 14px 20px; background: #f1f5fa; border-left: 4px solid var(--teal); border-radius: 0 10px 10px 0; font-size: 22px; line-height: 1.4; }
+.mx-detail b { color: var(--accent); }
+
+/* models */
+.models { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.model-card { border: 1px solid var(--line); border-top: 8px solid var(--c); border-radius: 14px; background: white; padding: 18px 20px; }
+.model-card h3 { font-size: 28px; margin: 0 0 2px; color: var(--ink); }
+.model-card .hf { font-family: Consolas, monospace; font-size: 15px; color: var(--ink-2); }
+.model-card ul { font-size: 21px; margin-top: 14px; }
+.model-card { min-height: 290px; }
+.model-card .badge { display: inline-block; margin-top: 8px; font-size: 15px; font-weight: 700; color: #8a5a10; background: #fff3d6; border: 1px solid #f0d08f; border-radius: 6px; padding: 3px 9px; }
+.settings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 18px; margin-top: 28px; font-size: 20px; }
+.settings div { background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; }
+.settings b { display: block; font-size: 15px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+
+/* metrics */
+.metric { border: 1px solid var(--line); border-radius: 12px; background: white; padding: 12px 16px; margin-bottom: 12px; }
+.metric h3 { font-size: 21px; margin-bottom: 4px; }
+.metric p { font-size: 18px; margin: 0; color: var(--ink-2); }
+.formula { font-family: "Cambria Math", Cambria, "Times New Roman", serif; font-size: 22px; color: var(--ink); margin: 6px 0; }
+
+.reveal .slide-number { background: transparent; color: var(--ink-2); font-size: 15px; }
+.reveal .progress { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- 1. Title -->
+<section class="title-slide">
+  <div class="eyebrow">Decision-robust clinical AI · clinician-labelled pilot</div>
+  <h1>From clinical notes to caseload decisions</h1>
+  <p class="subtitle">How the information an LLM sees, and the form of its answer, change the quality of the operational decision that follows.</p>
+  <div class="title-strip" id="title-chips"></div>
+</section>
+
+<!-- 2. Framework -->
+<section>
+  <h2><span class="kicker">Framework</span>Using the information in clinical notes to make a decision</h2>
+  <div class="flow" id="flow">
+    <div class="node" data-key="notes"><b>Clinical notes</b><span>service plan + assessment text</span></div>
+    <div class="arrow">&#8594;</div>
+    <div class="node green" data-key="icf"><b>ICF profile</b><span>structured, evidence-quoted (LLM)</span></div>
+    <div class="arrow">&#8594;</div>
+    <div class="coupled">
+      <div class="node green" data-key="assess"><b>LLM assessment</b><span>class · distribution · score</span></div>
+      <div class="arrow">&#8594;</div>
+      <div class="node green" data-key="or"><b>Decision model</b><span>balance caseload complexity (OR)</span></div>
+      <div class="coupled-caption">The coupled system we vary: context rung × output format</div>
+    </div>
+    <div class="arrow">&#8594;</div>
+    <div class="node" data-key="decision"><b>Decision</b><span>new clients &#8594; clinicians</span></div>
+    <div class="arrow">&#8594;</div>
+    <div class="node" data-key="regret"><b>Regret</b><span>vs. clinician-label optimum</span></div>
+  </div>
+  <div class="bypass"><div class="node" data-key="bypass"><b>LLM allocates directly</b><span>rungs 5–6: the LLM produces the full assignment, no OR</span></div></div>
+  <div class="detail" id="flow-detail"></div>
+</section>
+
+<!-- 3. ICF model -->
+<section>
+  <h2><span class="kicker">Step 1 · ICF</span>The WHO International Classification of Functioning (ICF)</h2>
+  <div class="icf-wrap">
+    <div>
+      <svg class="icf-svg" viewBox="0 0 860 470" role="img" aria-label="ICF biopsychosocial model">
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6f87a8"/></marker></defs>
+        <line x1="430" y1="88" x2="150" y2="186"/><line x1="430" y1="88" x2="430" y2="186"/><line x1="430" y1="88" x2="710" y2="186"/>
+        <line x1="262" y1="232" x2="318" y2="232"/><line x1="542" y1="232" x2="598" y2="232"/>
+        <line x1="150" y1="282" x2="230" y2="372"/><line x1="430" y1="282" x2="250" y2="372"/><line x1="430" y1="282" x2="610" y2="372"/><line x1="710" y1="282" x2="630" y2="372"/>
+        <g class="box condition" data-key="condition"><rect x="250" y="12" width="360" height="74"/><text class="t1" x="430" y="44" text-anchor="middle">Health condition</text><text class="t2" x="430" y="68" text-anchor="middle">disorder or disease (context for the profile)</text></g>
+        <g class="box" data-key="body"><rect x="20" y="186" width="260" height="96"/><text class="t1" x="150" y="226" text-anchor="middle">Body functions</text><text class="t1" x="150" y="252" text-anchor="middle">&amp; structures</text></g>
+        <g class="box" data-key="activity"><rect x="320" y="186" width="220" height="96"/><text class="t1" x="430" y="240" text-anchor="middle">Activity</text></g>
+        <g class="box" data-key="participation"><rect x="580" y="186" width="260" height="96"/><text class="t1" x="710" y="240" text-anchor="middle">Participation</text></g>
+        <g class="box context" data-key="environment"><rect x="80" y="372" width="320" height="86"/><text class="t1" x="240" y="408" text-anchor="middle">Environmental factors</text><text class="t2" x="240" y="434" text-anchor="middle">barrier or facilitator</text></g>
+        <g class="box context" data-key="personal"><rect x="460" y="372" width="320" height="86"/><text class="t1" x="620" y="408" text-anchor="middle">Personal factors</text><text class="t2" x="620" y="434" text-anchor="middle">internal, not the condition</text></g>
+      </svg>
+    </div>
+    <div>
+      <div class="statement"><p class="block-title">What it is</p>
+        <p style="font-size:20px;margin:0">A WHO framework (2001; children &amp; youth version 2007) that describes <strong>functioning</strong>, not diagnoses. Health is the interaction of body functions, activities and participation with <strong>contextual factors</strong> (the biopsychosocial model).</p></div>
+      <div class="detail" id="icf-detail" style="margin-top:14px;min-height:178px"></div>
+      <p class="block-title" style="margin-top:12px">Generic qualifier (severity)</p>
+      <div class="qual"><div><b>0</b>no problem</div><div><b>1</b>mild</div><div><b>2</b>moderate</div><div><b>3</b>severe</div><div><b>4</b>complete</div><div><b>8</b>not specified</div><div><b>9</b>n/a</div></div>
+      <p class="note">Environmental factors: direction (barrier / facilitator) × magnitude 0–4.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4. ICF extraction -->
+<section>
+  <h2><span class="kicker">Step 1 · ICF</span>From notes to a structured ICF profile</h2>
+  <div class="extract">
+    <div class="card">
+      <h3>Input</h3>
+      <ul><li>Pre-treatment notes of one child: <strong>service-planning</strong> and <strong>assessment</strong> text</li>
+        <li>Prompt: an experienced pediatric SLP documents the child in the ICF (children &amp; youth)</li>
+        <li>The model <strong>describes</strong>; it does not diagnose, predict or assign a class</li></ul>
+    </div>
+    <div class="card">
+      <h3>Rules</h3>
+      <p style="font-size:18px;margin:0 0 4px">Every field gets a status:</p>
+      <div class="status-row"><span class="status s-known">known</span><span class="status s-queried">queried</span><span class="status s-noconcern">no concern</span><span class="status s-nd">not documented</span></div>
+      <ul><li><strong>Silence &#8800; no problem</strong>: undocumented stays “not documented”</li>
+        <li>Severity mapped to the qualifier; ranges take the higher value</li>
+        <li>Short verbatim <strong>evidence quote</strong> for every non-empty field</li>
+        <li>Summary fields recomputed by deterministic rules</li></ul>
+    </div>
+    <div class="card">
+      <h3>Output <span class="illustrative">· illustrative, not a real client</span></h3>
+      <div class="profile-row"><span>Expressive language</span><span class="status s-known">known</span><span class="qchip">2</span><i>“uses 2–3 word phrases at home”</i></div>
+      <div class="profile-row"><span>Receptive language</span><span class="status s-known">known</span><span class="qchip">1</span></div>
+      <div class="profile-row"><span>Speech sound production</span><span class="status s-queried">queried</span><span class="qchip">8</span></div>
+      <div class="profile-row"><span>Fluency</span><span class="status s-noconcern">no concern</span><span class="qchip">0</span></div>
+      <div class="profile-row"><span>Participation · childcare</span><span class="status s-known">known</span><span class="qchip">2</span></div>
+      <div class="profile-row"><span>Caregiver capacity</span><span class="status s-known">known</span><span class="qchip">barrier 2</span></div>
+      <div class="profile-row"><span>Other professionals</span><span class="status s-known">known</span><span class="qchip">OT</span></div>
+      <div class="profile-row"><span>Developmental factors</span><span class="status s-queried">queried</span><span class="qchip">motor</span></div>
+    </div>
+  </div>
+  <div class="statement teal" style="margin-top:18px"><p style="margin:0;font-size:20px">The ICF step never sees the complexity classes. Each model rates from <strong>its own ICF profiles</strong>, and the same profile feeds every configuration in the matrix.</p></div>
+</section>
+
+<!-- 5. Classes -->
+<section>
+  <h2><span class="kicker">The target</span>Five complexity classes</h2>
+  <div class="ramp"></div>
+  <div class="ramp-labels"><span>one area of need · straightforward plan</span><span>more domains · contextual barriers · coordination with other providers</span></div>
+  <div class="classes" id="classes"></div>
+  <div class="class-detail" id="class-detail"></div>
+  <p class="note">Each class score s<sub>k</sub> is the client's complexity in the decision model. Two or more areas of need count as multiple domains. Hover a class for the clinical team's full definition.</p>
+</section>
+
+<!-- 6. Labelled dataset -->
+<section>
+  <h2><span class="kicker">Test set</span>The clinician-labelled dataset</h2>
+  <div class="kpis" id="kpis"></div>
+  <div class="ctl" data-for="labels"><span class="lbl">Show</span><button data-k="unit" data-v="n" aria-pressed="true">Counts</button><button data-k="unit" data-v="pct">Percent</button></div>
+  <div class="cols c37">
+    <div><div class="plot" id="plot-class" style="height:540px"></div></div>
+    <div><div class="plot" id="plot-conf" style="height:540px"></div></div>
+  </div>
+</section>
+
+<!-- 7. Labels detail and test chunks -->
+<section>
+  <h2><span class="kicker">Test set</span>Label confidence and the test chunks</h2>
+  <div class="cols c2">
+    <div>
+      <div class="ctl" data-for="cross"><span class="lbl">Clients</span><button data-k="set" data-v="used" aria-pressed="true">Used in chunks</button><button data-k="set" data-v="all">All labelled</button></div>
+      <div class="plot" id="plot-cross" style="height:600px"></div>
+    </div>
+    <div>
+      <div class="ctl"><span class="lbl">Class-stratified chunks of 20</span></div>
+      <div class="plot" id="plot-chunks" style="height:540px"></div>
+      <p class="note" id="usage-note"></p>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Configuration matrix -->
+<section>
+  <h2><span class="kicker">Design</span>The configuration matrix: context rung × output</h2>
+  <div class="matrix" id="matrix"></div>
+  <div class="mx-detail" id="mx-detail"></div>
+</section>
+
+<!-- 9. Models -->
+<section>
+  <h2><span class="kicker">Models</span>Three open-weight models, identical prompts</h2>
+  <div class="models" id="models"></div>
+  <div class="settings">
+    <div><b>Serving</b>vLLM, bfloat16, 32k-token context</div>
+    <div><b>Decoding</b>greedy (temperature 0), fixed seed</div>
+    <div><b>Output</b>JSON-schema-constrained; up to 3 attempts</div>
+    <div><b>Same inputs</b>prompts, chunks and load profiles for every model</div>
+    <div><b>Qwen3.5</b>thinking mode switched off</div>
+    <div id="pending-box"><b>Pending</b>—</div>
+  </div>
+</section>
+
+<!-- 10. Scoring -->
+<section>
+  <h2><span class="kicker">Evaluation</span>How each configuration is scored</h2>
+  <div class="cols c73">
+    <div>
+      <div class="ctl"><span class="lbl">Three load profiles · clinicians A, B, C</span></div>
+      <div class="plot" id="plot-profiles" style="height:520px"></div>
+      <p class="note" id="instances-note"></p>
+    </div>
+    <div>
+      <div class="metric"><h3>Decision regret <span class="small">(lower is better)</span></h3>
+        <div class="formula">R = Range(x&#770;; s*) &minus; min<sub>x</sub> Range(x; s*)</div>
+        <p>Range = largest minus smallest final caseload complexity. s* = clinician class scores. 0 means the decision is as balanced as the clinician-label optimum.</p></div>
+      <div class="metric"><h3>Assignment agreement <span class="small">(%)</span></h3><p>Share of clients sent to the same clinician as a fixed clinician-optimal reference allocation.</p></div>
+      <div class="metric"><h3>Class agreement and QWK</h3><p>LLM class vs. clinician class (distribution: most likely class; score: nearest class score).</p></div>
+      <div class="metric"><h3>Feasibility</h3><p>LLM full allocations must assign every client exactly once within each clinician's capacity.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. Results A -->
+<section>
+  <h2><span class="kicker">Results</span><span class="view-tag">VIEW A</span>The matrix, one panel per model</h2>
+  <p class="lede">Read across a row to compare outputs, down a column to compare rungs, across panels to compare models.</p>
+  <div class="ctl" data-for="A"></div>
+  <div class="plot" id="plot-A" style="height:600px"></div>
+  <div class="highlights" id="hl-A"></div>
+</section>
+
+<!-- 12. Results B -->
+<section>
+  <h2><span class="kicker">Results</span><span class="view-tag">VIEW B</span>Models side by side in every cell</h2>
+  <p class="lede">Same matrix; each cell compares the three models with 95% intervals over the 15 decision instances.</p>
+  <div class="ctl" data-for="B"></div>
+  <div class="plot" id="plot-B" style="height:680px"></div>
+</section>
+
+<!-- 13. Results C -->
+<section>
+  <h2><span class="kicker">Results</span><span class="view-tag">VIEW C</span>Walking the matrix: what each added piece of context does</h2>
+  <div class="ctl" data-for="C"></div>
+  <div class="plot" id="plot-C" style="height:650px"></div>
+</section>
+
+<!-- 14. Results D -->
+<section>
+  <h2><span class="kicker">Results</span><span class="view-tag">VIEW D</span>Does class accuracy translate into better decisions?</h2>
+  <p class="lede">Each marker is one configuration (number = rung). Color = model, shape = output.</p>
+  <div class="ctl" data-for="D"></div>
+  <div class="plot" id="plot-D" style="height:650px"></div>
+</section>
+
+<!-- 15. Results E -->
+<section>
+  <h2><span class="kicker">Results</span><span class="view-tag">VIEW E</span>LLM full allocation vs. OR on LLM ratings (rungs 5–6)</h2>
+  <div class="cols c73">
+    <div><div class="plot" id="plot-E1" style="height:660px"></div></div>
+    <div><div class="plot" id="plot-E2" style="height:660px"></div></div>
+  </div>
+</section>
+
+<!-- 16. Coverage -->
+<section>
+  <h2><span class="kicker">Caveats</span>What the numbers rest on</h2>
+  <div class="cols c37">
+    <div><div class="plot" id="plot-cov" style="height:690px"></div></div>
+    <div>
+      <div class="statement warn"><p class="block-title">Read with care</p><ul id="caveats" style="font-size:19px"></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 17. Discussion -->
+<section>
+  <h2><span class="kicker">Discussion</span>Choosing the results view, and next steps</h2>
+  <div class="cols c2">
+    <div class="card"><h3>Which view answers which question?</h3>
+      <ul style="font-size:20px">
+        <li><strong>A · Matrix per model:</strong> where in the design a model does well</li>
+        <li><strong>B · Models in every cell:</strong> which model wins for a given configuration</li>
+        <li><strong>C · Walking the matrix:</strong> the effect of adding context, or switching output</li>
+        <li><strong>D · Accuracy vs. decision:</strong> whether better classes mean better decisions</li>
+        <li><strong>E · Direct allocation:</strong> the LLM as decision-maker vs. LLM + OR</li></ul></div>
+    <div class="card"><h3>Next steps</h3><ul style="font-size:20px" id="next-steps"></ul></div>
+  </div>
+</section>
+
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script>window.DECK_DATA = /*__DECK_DATA__*/null;</script>
+<script>
+(function () {
+"use strict";
+const D = window.DECK_DATA;
+if (!D) { document.body.insertAdjacentHTML("afterbegin", '<div class="synthetic-banner">No data: run build_labelled_deck.py render</div>'); return; }
+if (D.synthetic) document.body.insertAdjacentHTML("afterbegin", '<div class="synthetic-banner">PREVIEW · synthetic results, not real data</div>');
+
+// ------------------------------------------------------------------ constants
+const INK = "#24334a", INK2 = "#546b86", MUTED = "#898781", GRID = "#e1e0d9", AXIS = "#c3c2b7", SURF = "#fcfcfb";
+const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a"];
+const MODELS = D.models.map((m, i) => ({ ...m, color: MODEL_COLORS[i % 3] }));
+const mName = m => m.placeholder ? `${m.name} (pending)` : m.name;
+const PLACEHOLDERS = MODELS.filter(m => m.placeholder);
+const OUTPUTS = [
+  { key: "label", name: "Label", sub: "one class, 1–5", color: "#6250d6", dash: "solid", symbol: "circle" },
+  { key: "distribution", name: "Distribution", sub: "probability per class", color: "#008300", dash: "dash", symbol: "square" },
+  { key: "score", name: "Score", sub: "continuous, 1.0–1.8", color: "#e87ba4", dash: "dot", symbol: "diamond" },
+  { key: "allocation", name: "LLM allocation", sub: "LLM assigns all clients", color: "#eda100", dash: "longdash", symbol: "triangle-up" },
+];
+const RUNGS = [
+  { k: 1, name: "Profile only", sees: "one client's ICF profile" },
+  { k: 2, name: "+ Purpose", sees: "the profile, and that ratings feed a caseload assignment" },
+  { k: 3, name: "+ Goal", sees: "the above, plus the goal: equal final caseloads" },
+  { k: 4, name: "+ Cohort", sees: "the above, plus all 20 clients arriving together" },
+  { k: 5, name: "+ Clinicians", sees: "the above, plus each clinician's caseload and capacity" },
+  { k: 6, name: "+ Formal model", sees: "the above, plus the exact optimization problem" },
+];
+const RUNG_TEXT = {
+  1: "The model sees only one client's ICF profile and rates it. No decision context.",
+  2: "Adds the purpose: the rating is an input to assigning new clients to existing clinicians.",
+  3: "Adds the goal: make the clinicians' final caseload complexity as equal as possible.",
+  4: "Adds the cohort: the model sees all 20 clients arriving together, then rates the target client.",
+  5: "Adds the operational state: each clinician's current caseload and capacity (one of three load profiles).",
+  6: "Adds the formal problem: notation, objective (min. caseload range) and constraints.",
+};
+const OUTPUT_TEXT = {
+  label: "The LLM returns one class (1–5). Its class score enters a deterministic OR model that minimizes the caseload-complexity range.",
+  distribution: "The LLM returns a probability for each class. A stochastic OR model (sample average over sampled class scenarios) optimizes expected balance.",
+  score: "The LLM returns a continuous complexity between 1.0 and 1.8, used directly by the deterministic OR model.",
+  allocation: "The LLM assigns all 20 clients to clinicians itself. The allocation is checked for feasibility, then scored. Needs the clinicians, so rungs 5–6 only.",
+};
+const OR_TEXT = {
+  label: "deterministic OR on class scores",
+  distribution: "stochastic OR (SAA) on class probabilities",
+  score: "deterministic OR on scores",
+  allocation: "no OR: the LLM's own assignment",
+};
+const CLASS_RAMP = ["#9ec5f4", "#5598e7", "#2a78d6", "#1c5cab", "#0d366b"];
+const CONF_RAMP = ["#b7d3f6", "#5598e7", "#184f95", "#0d366b", "#104281"];
+const SEQ = [[0, "#eef5fd"], [0.2, "#cde2fb"], [0.45, "#86b6ef"], [0.7, "#2a78d6"], [1, "#104281"]];
+const DIV = [[0, "#c43c3c"], [0.25, "#e88a84"], [0.5, "#f0efec"], [0.75, "#6da7ec"], [1, "#1c5cab"]];
+const PROFILE_NAMES = { balanced: "Balanced", unbalanced: "Unbalanced", highly_unbalanced: "Highly unbalanced" };
+
+const cellMap = new Map(D.cells.map(c => [`${c.model}|${c.rung}|${c.output}`, c]));
+const cell = (m, r, o) => cellMap.get(`${m}|${r}|${o}`);
+const fmt = (v, d) => (v === null || v === undefined || Number.isNaN(v)) ? "—" : Number(v).toFixed(d);
+
+const METRICS = {
+  regret: { label: "Decision regret", short: "Regret", better: -1, d: 3, unit: "", get: c => c.regret_mean, ci: c => c.regret_ci, zero: true,
+            desc: "complexity range minus the clinician-label optimum (0 = optimal)" },
+  assign: { label: "Assignment agreement (%)", short: "Assignment %", better: 1, d: 1, unit: "%", get: c => c.assign_mean, ci: c => c.assign_ci, zero: true,
+            desc: "clients sent to the same clinician as the clinician-optimal reference" },
+  exact: { label: "Class agreement (%)", short: "Class agreement %", better: 1, d: 1, unit: "%", get: c => c.exact_pct, ci: () => null, zero: true,
+           desc: "LLM class equals the clinician class", ratingOnly: true },
+  qwk: { label: "QWK vs. clinicians", short: "QWK", better: 1, d: 3, unit: "", get: c => c.qwk, ci: () => null,
+         desc: "quadratic-weighted kappa between LLM and clinician classes", ratingOnly: true },
+  mae: { label: "Mean class error", short: "Class error", better: -1, d: 2, unit: "", get: c => c.mae, ci: () => null, zero: true,
+         desc: "mean |LLM class − clinician class|", ratingOnly: true },
+  distinct: { label: "Distinct optimal allocations (of " + D.optimization.n_seeds + " seeds)", short: "Distinct allocations", better: 0, d: 1, unit: "",
+              get: c => c.distinct_mean, ci: () => null, zero: true, desc: "how many different optimal assignments the seeded solves found", orOnly: true },
+};
+
+const BASE_LAYOUT = () => ({
+  font: { family: '"Segoe UI", system-ui, sans-serif', size: 15, color: INK },
+  paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: SURF,
+  margin: { l: 70, r: 20, t: 40, b: 50 },
+  hoverlabel: { bgcolor: "white", bordercolor: AXIS, font: { color: INK, size: 15, family: '"Segoe UI", sans-serif' } },
+  legend: { orientation: "h", x: 0, y: 1.1, font: { size: 15 } },
+});
+const CONFIG = { displaylogo: false, responsive: true, modeBarButtons: [["toImage"]], toImageButtonOptions: { format: "png", scale: 2 } };
+const axis = extra => ({ gridcolor: GRID, linecolor: AXIS, zerolinecolor: AXIS, tickfont: { size: 14, color: INK2 }, title: { font: { size: 15, color: INK2 } }, ...extra });
+
+function draw(id, traces, layout) { Plotly.react(id, traces, layout, CONFIG); }
+
+// ------------------------------------------------------------------ controls
+const state = {
+  labels: { unit: "n" }, cross: { set: "used" },
+  A: { metric: "regret", mode: "value" }, B: { metric: "regret" },
+  C: { metric: "regret", group: "output" }, D: { x: "qwk", y: "regret" },
+};
+const RENDER = {};
+function buildControls(key, groups) {
+  const box = document.querySelector(`.ctl[data-for="${key}"]`);
+  box.innerHTML = groups.map((g, i) => (i ? '<span class="sep"></span>' : "") + `<span class="lbl">${g.label}</span>` +
+    g.options.map(([v, t]) => `<button data-k="${g.k}" data-v="${v}" aria-pressed="${state[key][g.k] === v}">${t}</button>`).join("")).join("");
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".ctl button"); if (!b) return;
+  const key = b.parentElement.dataset.for; if (!key) return;
+  state[key][b.dataset.k] = b.dataset.v;
+  b.parentElement.querySelectorAll(`button[data-k="${b.dataset.k}"]`).forEach(x => x.setAttribute("aria-pressed", x === b));
+  RENDER[key === "labels" ? "labels" : key]();
+});
+const metricOptions = keys => keys.map(k => [k, METRICS[k].short]);
+
+// ------------------------------------------------------------------ hover panels
+function hoverPanel(selector, itemSel, panelId, texts, first) {
+  const items = document.querySelectorAll(`${selector} ${itemSel}`);
+  const panel = document.getElementById(panelId);
+  const show = el => { items.forEach(x => x.classList.toggle("is-active", x === el)); panel.innerHTML = texts[el.dataset.key]; };
+  items.forEach(el => { el.addEventListener("mouseenter", () => show(el)); el.addEventListener("click", () => show(el)); });
+  const start = [...items].find(x => x.dataset.key === first) || items[0];
+  if (start) show(start);
+}
+
+// title chips
+document.getElementById("title-chips").innerHTML =
+  MODELS.map(m => `<span class="chip"><span class="dot" style="background:${m.color}"></span>${mName(m)}</span>`).join("") +
+  `<span class="chip">6 context rungs × 3 output formats + LLM allocation</span>` +
+  `<span class="chip">${D.labels.used.n} clinician-labelled clients · ${Object.keys(D.labels.chunks).length * 3} decision instances</span>`;
+
+hoverPanel("#flow", ".node", "flow-detail", {
+  notes: "<b>Clinical notes</b>Pre-treatment service-planning and assessment text for each child, de-identified. This is the unstructured information the decision depends on.",
+  icf: "<b>ICF profile (LLM)</b>Each model reads the notes once and fills a structured ICF profile with statuses, qualifiers and evidence quotes. No class is assigned here.",
+  assess: "<b>LLM assessment</b>The model rates each client's complexity from its ICF profile, with more decision context at each rung, as a label, a distribution or a score.",
+  or: "<b>Decision model (OR)</b>Assigns the new clients to clinicians within capacity, minimizing the gap between the most and least loaded clinician (Gurobi, " + D.optimization.n_seeds + " seeded optimal solutions).",
+  decision: "<b>Decision</b>An assignment of every new client to one clinician.",
+  regret: "<b>Regret</b>The decision is evaluated with the <strong>clinician</strong> classes: how far its caseload balance is from the best balance achievable with clinician labels.",
+  bypass: "<b>LLM as the decision-maker</b>At rungs 5–6 the LLM knows the clinicians and capacities, so it can also produce the full assignment itself, scored the same way.",
+}, "assess");
+document.querySelector('#flow').parentElement.querySelector('.bypass .node').addEventListener("mouseenter", e => {
+  document.querySelectorAll("#flow .node").forEach(x => x.classList.remove("is-active"));
+  e.currentTarget.classList.add("is-active");
+  document.getElementById("flow-detail").innerHTML = "<b>LLM as the decision-maker</b>At rungs 5–6 the LLM knows the clinicians and capacities, so it can also produce the full assignment itself, scored the same way.";
+});
+document.querySelector('.bypass .node').addEventListener("mouseleave", e => e.currentTarget.classList.remove("is-active"));
+
+hoverPanel(".icf-svg", ".box", "icf-detail", {
+  condition: "<b>Health condition</b>The disorder or disease. Not coded by our extraction; the profile describes functioning around it.",
+  body: "<b>Body functions &amp; structures</b>Speech sound production, motor speech, voice and resonance, fluency, receptive and expressive language, social communication, hearing, oral-motor, feeding and swallowing. Structures: e.g., cleft palate, airway.",
+  activity: "<b>Activity</b>How the child uses communication to complete tasks: grammar, vocabulary, narratives, communication devices, as observed in assessment.",
+  participation: "<b>Participation</b>Communication in daily life: at home, in childcare or school, in the community, and with peers.",
+  environment: "<b>Environmental factors</b>Caregiver capacity, home and community learning environments, engagement in services, other professionals involved, social determinants of health. Each one is a barrier or a facilitator.",
+  personal: "<b>Personal factors</b>Age, developmental factors (e.g., suspected autism, motor delay), cognitive abilities, behavioural profile, birth history.",
+}, "body");
+
+// classes
+const CLASS_SHORT = {
+  1: "Mild/moderate needs in <b>one area</b>; straightforward plan.",
+  2: "Moderate+ needs in one area, <b>or</b> class-1 needs with contextual barriers.",
+  3: "Needs in <b>multiple domains</b>, or significant needs in one domain (e.g., motor speech).",
+  4: "Multiple domains needing <b>coordination</b> with other providers (PT/OT, diagnoses such as ASD), or class-3 needs with barriers.",
+  5: "<b>Very complex</b>: multiple domains, extended specialist consultation, multiple agencies.",
+};
+document.getElementById("classes").innerHTML = D.classes.map((c, i) => `
+  <div class="class-card" data-key="${c.id}"><header style="background:${CLASS_RAMP[i]};${i < 2 ? "color:#0b1d36" : ""}"><b>Class ${c.id}</b><span>s = ${c.score.toFixed(1)}</span></header>
+  <div class="body">${CLASS_SHORT[c.id] || ""}</div><div class="plan">Typical plan: ${c.plan || "—"}</div></div>`).join("");
+const esc = s => String(s).replace(/[&<>]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
+hoverPanel("#classes", ".class-card", "class-detail",
+  Object.fromEntries(D.classes.map(c => [c.id, `<b>Class ${c.id} (score ${c.score.toFixed(1)}), clinical team's definition:</b> ${esc(c.definition)}`])), "3");
+
+// ------------------------------------------------------------------ labels
+const L = D.labels, CLASS_IDS = D.classes.map(c => String(c.id));
+const nChunks = Object.keys(L.chunks).length;
+document.getElementById("kpis").innerHTML = [
+  [L.all.n, "clients labelled by clinicians (class + confidence)"],
+  [L.n_icf_all, "with an ICF profile from all four models"],
+  [`${nChunks} × ${L.chunk_size}`, "class-stratified test chunks (sampled with replacement)"],
+  [nChunks * 3, "decision instances per configuration (chunks × 3 load profiles)"],
+].map(([v, l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+RENDER.labels = function () {
+  const pct = state.labels.unit === "pct";
+  const sets = [["all", `All labelled (n=${L.all.n})`, "#9ec5f4"], ["used", `Used in test chunks (n=${L.used.n})`, "#1c5cab"]];
+  const bar = (key, field, cats) => sets.map(([s, name, color]) => {
+    const counts = cats.map(c => L[s][field][c] || 0), tot = counts.reduce((a, b) => a + b, 0) || 1;
+    const y = counts.map(v => pct ? 100 * v / tot : v);
+    return { type: "bar", name, x: cats.map(c => key === "class" ? `Class ${c}` : c), y, marker: { color, line: { width: 0 } },
+      text: counts.map((v, i) => pct ? `${y[i].toFixed(0)}%` : String(v)), textposition: "outside", cliponaxis: false,
+      textfont: { size: 14, color: INK2 },
+      customdata: counts.map((v, i) => [v, (100 * v / tot).toFixed(1)]),
+      hovertemplate: `<b>%{x}</b><br>${name}<br>%{customdata[0]} clients (%{customdata[1]}%)<extra></extra>` };
+  });
+  const lay = (title) => ({ ...BASE_LAYOUT(), title: { text: title, x: 0, font: { size: 20, color: INK } }, barmode: "group", bargap: 0.25, bargroupgap: 0.06,
+    yaxis: axis({ title: { text: pct ? "% of clients" : "clients" }, rangemode: "tozero" }), xaxis: axis({ showgrid: false }),
+    legend: { orientation: "h", x: 0, y: -0.14 }, margin: { l: 60, r: 10, t: 50, b: 70 } });
+  draw("plot-class", bar("class", "class", CLASS_IDS), lay("Clinician class"));
+  draw("plot-conf", bar("conf", "confidence", L.conf_order), lay("Clinician confidence in the label"));
+};
+
+RENDER.cross = function () {
+  const s = state.cross.set, data = L[s];
+  const traces = L.conf_order.map((c, i) => ({
+    type: "bar", orientation: "h", name: c, y: CLASS_IDS.map(k => `Class ${k}`), x: CLASS_IDS.map(k => data.cross[k][c] || 0),
+    marker: { color: CONF_RAMP[i], line: { color: SURF, width: 2 } },
+    text: CLASS_IDS.map(k => (data.cross[k][c] || 0) || ""), textposition: "inside", insidetextanchor: "middle", textangle: 0, constraintext: "none",
+    textfont: { color: i === 0 ? "#0b1d36" : "white", size: 15 },
+    hovertemplate: `<b>%{y}</b> · ${c} confidence<br>%{x} clients<extra></extra>` }));
+  draw("plot-cross", traces, { ...BASE_LAYOUT(), barmode: "stack", title: { text: `Class × confidence (${s === "used" ? "used in chunks" : "all labelled"}, n=${data.n})`, x: 0, y: 0.98, font: { size: 20 } },
+    yaxis: axis({ autorange: "reversed", showgrid: false }), xaxis: axis({ title: { text: "clients" } }),
+    legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom", traceorder: "normal", title: { text: "Confidence  " } }, margin: { l: 80, r: 10, t: 90, b: 60 } });
+};
+
+RENDER.chunks = function () {
+  const ids = Object.keys(L.chunks);
+  const traces = CLASS_IDS.map((k, i) => ({ type: "bar", name: `Class ${k}`, x: ids, y: ids.map(c => L.chunks[c][k] || 0),
+    marker: { color: CLASS_RAMP[i], line: { color: SURF, width: 2 } },
+    text: ids.map(c => (L.chunks[c][k] || 0) > 1 ? L.chunks[c][k] : ""), textposition: "inside", insidetextanchor: "middle", textangle: 0, constraintext: "none",
+    textfont: { color: i < 2 ? "#0b1d36" : "white", size: 15 },
+    hovertemplate: `<b>Chunk %{x}</b> · Class ${k}<br>%{y} clients<extra></extra>` }));
+  draw("plot-chunks", traces, { ...BASE_LAYOUT(), barmode: "stack", yaxis: axis({ title: { text: "clients per chunk" } }),
+    xaxis: axis({ showgrid: false }), legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom", traceorder: "normal" }, margin: { l: 60, r: 10, t: 50, b: 40 } });
+  const usage = Object.entries(L.usage).map(([t, n]) => `${n} clients used ${t}×`).join(", ");
+  document.getElementById("usage-note").innerHTML = `Each chunk mirrors the class mix of the ${L.used.n} eligible clients. A client appears at most once per chunk; across chunks: ${usage}.`;
+};
+
+// ------------------------------------------------------------------ design matrix
+(function () {
+  const box = document.getElementById("matrix"), texts = {};
+  let html = `<div class="mx-corner">context rung &#8595; &nbsp;·&nbsp; output &#8594;</div>`;
+  OUTPUTS.forEach(o => {
+    html += `<div class="mx-head" style="--c:${o.color}" data-key="o-${o.key}"><b>${o.name}</b><span>${o.sub}</span></div>`;
+    texts[`o-${o.key}`] = `<b>${o.name}.</b> ${OUTPUT_TEXT[o.key]}`;
+  });
+  RUNGS.forEach(r => {
+    html += `<div class="mx-row" data-key="r-${r.k}"><b>Rung ${r.k} · ${r.name}</b><div class="ladder">${RUNGS.map(x => `<i class="${x.k <= r.k ? "on" : ""}"></i>`).join("")}</div></div>`;
+    texts[`r-${r.k}`] = `<b>Rung ${r.k} · ${r.name}.</b> ${RUNG_TEXT[r.k]}`;
+    OUTPUTS.forEach(o => {
+      if (o.key === "allocation" && r.k < 5) { html += `<div class="mx-cell na">needs clinicians</div>`; return; }
+      const key = `c-${r.k}-${o.key}`;
+      html += `<div class="mx-cell" style="--c:${o.color}" data-key="${key}"><span class="sw"></span>R${r.k} × ${o.name}</div>`;
+      texts[key] = `<b>Rung ${r.k} × ${o.name}.</b> Sees ${r.sees}. Returns ${o.key === "allocation" ? "a full assignment" : o.sub}; decision: ${OR_TEXT[o.key]}.`;
+    });
+  });
+  box.innerHTML = html;
+  hoverPanel("#matrix", "[data-key]", "mx-detail", texts, "c-4-distribution");
+})();
+
+// models
+document.getElementById("models").innerHTML = MODELS.map(m => {
+  const facts = {
+    "medgemma-4b": ["Gemma 3 variant trained for medical text and images", "Used text-only", "Medical domain adaptation at small scale"],
+    "qwen35-4b": ["General-purpose model, Qwen3.5 family", "Same size as MedGemma 4B: domain tuning vs. general", "Thinking mode off"],
+    "qwen35-27b": ["General-purpose model, Qwen3.5 family", "About 7× the parameters of the 4B models", "Thinking mode off"],
+  }[m.key] || [];
+  return `<div class="model-card" style="--c:${m.color}"><h3>${m.name}</h3><div class="hf">${m.hf_id}</div>${m.placeholder ? '<span class="badge">Results pending: OR solves in progress</span>' : ""}<ul>${facts.map(f => `<li>${f}</li>`).join("")}</ul></div>`;
+}).join("");
+document.getElementById("pending-box").innerHTML = `<b>Pending</b>${(D.pending_models || []).join(", ") || "none"} (inference still running)`;
+
+// load profiles
+RENDER.profiles = function () {
+  const ids = ["A", "B", "C"], profs = Object.keys(D.profiles);
+  const ramp = ["#86b6ef", "#2a78d6", "#104281"];
+  const traces = ids.map((cid, i) => ({ type: "bar", name: `Clinician ${cid}`, x: profs.map(p => PROFILE_NAMES[p]),
+    y: profs.map(p => D.profiles[p].find(c => c.id === cid).initial_complexity), marker: { color: ramp[i], line: { color: SURF, width: 2 } },
+    text: profs.map(p => D.profiles[p].find(c => c.id === cid).initial_complexity.toFixed(0)), textposition: "outside", textfont: { size: 14, color: INK2 },
+    customdata: profs.map(p => { const c = D.profiles[p].find(x => x.id === cid); return [c.initial_count, c.capacity - c.initial_count]; }),
+    hovertemplate: `<b>%{x}</b> · Clinician ${cid}<br>current complexity %{y}<br>%{customdata[0]} current clients, room for %{customdata[1]} new<extra></extra>` }));
+  draw("plot-profiles", traces, { ...BASE_LAYOUT(), barmode: "group", bargap: 0.3, yaxis: axis({ title: { text: "current caseload complexity" }, rangemode: "tozero" }),
+    xaxis: axis({ showgrid: false }), legend: { orientation: "h", x: 0, y: 1.12 }, margin: { l: 60, r: 10, t: 40, b: 40 } });
+  const c0 = D.profiles[profs[0]][0];
+  document.getElementById("instances-note").innerHTML = `Each clinician has ${c0.initial_count} current clients and room for ${c0.capacity - c0.initial_count} new ones. ${nChunks} chunks × 3 profiles = <b>${nChunks * 3} decision instances</b> per configuration; OR results average ${D.optimization.n_seeds} seeded optimal solutions per instance.`;
+};
+
+// ------------------------------------------------------------------ results helpers
+const rungLabel = r => `Rung ${r} · ${RUNGS[r - 1].name}`;
+function value(metric, c) { const M = METRICS[metric]; if (!c) return null; if (M.ratingOnly && c.output === "allocation") return null; if (M.orOnly && c.output === "allocation") return null; const v = M.get(c); return v === undefined ? null : v; }
+function ciOf(metric, c) { if (!c) return null; const v = METRICS[metric].ci(c); return v === undefined ? null : v; }
+function nText(c) {
+  if (!c) return "not run";
+  if (c.output === "allocation") return `${c.n_feasible ?? 0}/${c.n_expected} feasible allocations`;
+  return `${c.n_units}/${c.n_expected} instances solved · ${c.n_pairs ?? 0} ratings vs. clinicians`;
+}
+function hoverFor(metric, m, r, o, c) {
+  const M = METRICS[metric], v = value(metric, c), ci = ciOf(metric, c);
+  return `<b>${m.name}</b><br>${rungLabel(r)} × ${o.name}<br>${M.short}: <b>${fmt(v, M.d)}${M.unit}</b>${ci ? ` ± ${fmt(ci, M.d)}` : ""}<br>${nText(c)}`;
+}
+function colsFor(metric) { return OUTPUTS.filter(o => !(o.key === "allocation" && (METRICS[metric].ratingOnly || METRICS[metric].orOnly))); }
+function allValues(metric) {
+  const out = [];
+  MODELS.forEach(m => RUNGS.forEach(r => OUTPUTS.forEach(o => { const v = value(metric, cell(m.key, r.k, o.key)); if (v !== null) out.push(v); })));
+  return out;
+}
+function bestText(metric) {
+  const M = METRICS[metric]; if (!M.better) return "";
+  return MODELS.filter(m => !m.placeholder).map(m => {
+    let best = null;
+    RUNGS.forEach(r => OUTPUTS.forEach(o => { const c = cell(m.key, r.k, o.key), v = value(metric, c);
+      if (v !== null && (best === null || (M.better > 0 ? v > best.v : v < best.v))) best = { v, r: r.k, o: o.name }; }));
+    return best ? `<b>${m.short}</b>: R${best.r} × ${best.o} (${fmt(best.v, M.d)}${M.unit})` : "";
+  }).filter(Boolean).join(" &nbsp;·&nbsp; ");
+}
+
+// ------------------------------------------------------------------ view A: heatmap per model
+buildControls("A", [
+  { label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae", "distinct"]) },
+  { label: "Show", k: "mode", options: [["value", "Value"], ["delta", "Change vs. R1 × Label"]] },
+]);
+RENDER.A = function () {
+  const { metric, mode } = state.A, M = METRICS[metric], cols = colsFor(metric);
+  const n = MODELS.length, gap = 0.04, w = (1 - 0.0 - gap * (n - 1) - 0.07) / n;
+  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 185, r: 20, t: 82, b: 20 }, plot_bgcolor: "#f4f4f2" };
+  const vals = [];
+  const grid = MODELS.map(m => RUNGS.map(r => cols.map(o => {
+    const c = cell(m.key, r.k, o.key); let v = value(metric, c);
+    if (mode === "delta" && v !== null) { const b = value(metric, cell(m.key, 1, "label")); v = b === null ? null : v - b; }
+    if (v !== null) vals.push(v); return v; })));
+  let zmin = Math.min(...vals), zmax = Math.max(...vals);
+  if (mode === "delta") { const a = Math.max(Math.abs(zmin), Math.abs(zmax)) || 1; zmin = -a; zmax = a; }
+  else if (M.zero) zmin = Math.min(0, zmin);
+  const better = M.better || 1;
+  const lastReady = (MODELS.filter(x => !x.placeholder).pop() || {}).key;
+  MODELS.forEach((m, i) => {
+    const xa = i ? `x${i + 1}` : "x", ya = i ? `y${i + 1}` : "y";
+    const x0 = i * (w + gap);
+    layout[`xaxis${i ? i + 1 : ""}`] = axis({ domain: [x0, x0 + w], side: "top", showgrid: false, tickfont: { size: 14, color: INK }, fixedrange: true });
+    layout[`yaxis${i ? i + 1 : ""}`] = axis({ autorange: "reversed", showgrid: false, showticklabels: i === 0, fixedrange: true, tickfont: { size: 15, color: INK } });
+    if (m.placeholder) { layout[`xaxis${i ? i + 1 : ""}`].visible = false; layout[`yaxis${i ? i + 1 : ""}`].visible = false; }
+    const z = grid[i], xs = cols.map(o => o.name), ys = RUNGS.map(r => rungLabel(r.k));
+    const zColor = mode === "delta" ? z.map(row => row.map(v => v === null ? null : v * better)) : z;
+    traces.push({ type: "heatmap", x: xs, y: ys, z: zColor, xaxis: xa, yaxis: ya, xgap: 3, ygap: 3,
+      zmin: mode === "delta" ? zmin * 1 : zmin, zmax, colorscale: mode === "delta" ? DIV : (M.better < 0 ? SEQ.map(([p, c], j) => [p, SEQ[SEQ.length - 1 - j][1]]) : SEQ),
+      showscale: m.key === lastReady, colorbar: { thickness: 12, len: 0.85, x: x0 + w + 0.008, xanchor: "left", xpad: 4, tickfont: { size: 13, color: INK2 },
+        title: { text: mode === "delta" ? "better →" : (M.better < 0 ? "↓ better" : M.better > 0 ? "↑ better" : ""), side: "right", font: { size: 13, color: INK2 } } },
+      customdata: RUNGS.map(r => cols.map(o => hoverFor(metric, m, r.k, o, cell(m.key, r.k, o.key)) + (mode === "delta" ? "<br>change vs. R1 × Label: " + fmt(z[r.k - 1][cols.indexOf(o)], M.d) : ""))),
+      hovertemplate: "%{customdata}<extra></extra>", hoverongaps: false });
+    ann.push({ text: `<b>${m.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 1.075, yanchor: "bottom", showarrow: false, font: { size: 19, color: m.placeholder ? MUTED : (m.color === "#1baf7a" ? "#127a55" : m.color) } });
+    if (m.placeholder) {
+      ann.push({ text: "<b>Results pending</b><br>OR solves in progress", xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.5, showarrow: false,
+        font: { size: 18, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 12 });
+      return;
+    }
+    const lo = mode === "delta" ? zmin : zmin, hi = zmax;
+    RUNGS.forEach((r, ri) => cols.forEach((o, ci) => {
+      const v = z[ri][ci], c = cell(m.key, r.k, o.key);
+      let t = v === null ? (o.key === "allocation" && r.k < 5 ? "" : "—") : fmt(v, M.d);
+      if (v !== null && mode === "delta" && v > 0) t = "+" + t;
+      if (v !== null && c && c.n_expected && c.n_units < c.n_expected && mode === "value") t += "*";
+      const shade = v === null ? 0 : mode === "delta" ? Math.abs(v * better) / (hi || 1) : (M.better < 0 ? (hi - v) : (v - lo)) / ((hi - lo) || 1);
+      ann.push({ text: t, x: o.name, y: rungLabel(r.k), xref: xa, yref: ya, showarrow: false,
+        font: { size: 15, color: mode === "value" && shade > 0.62 ? "white" : (mode === "delta" && shade > 0.6 ? "white" : INK) } });
+    }));
+  });
+  layout.annotations = ann;
+  draw("plot-A", traces, layout);
+  document.getElementById("hl-A").innerHTML = (mode === "value" ? `Best cell per model, ${M.label.toLowerCase()} (${M.desc}): ` + bestText(metric) : `Change from each model's Rung 1 × Label cell; blue = better, red = worse.`) +
+    (mode === "value" ? ` &nbsp;<span class="small">* fewer than ${nChunks * 3} instances (see caveats). Darker = ${M.better < 0 ? "lower" : "higher"} value.</span>` : "");
+};
+
+// ------------------------------------------------------------------ view B: small multiples per cell
+buildControls("B", [{ label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae"]) }]);
+RENDER.B = function () {
+  const { metric } = state.B, M = METRICS[metric], cols = colsFor(metric);
+  const nR = RUNGS.length, nC = cols.length, left = 0.15, gx = 0.022, gy = 0.03;
+  const w = (1 - left - gx * (nC - 1)) / nC, h = (1 - 0.1 - gy * (nR - 1)) / nR;
+  const vals = []; MODELS.forEach(m => RUNGS.forEach(r => cols.forEach(o => { const c = cell(m.key, r.k, o.key), v = value(metric, c), e = ciOf(metric, c) || 0; if (v !== null) { vals.push(v - e, v + e); } })));
+  let lo = Math.min(...vals), hi = Math.max(...vals); if (M.zero) lo = Math.min(0, lo); const pad = (hi - lo) * 0.08 || 0.1; lo -= M.zero && lo >= 0 ? 0 : pad; hi += pad; if (M.zero && lo > -pad) lo = Math.min(lo, 0) - pad * 0.3;
+  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 10, r: 10, t: 34, b: 46 }, showlegend: true, legend: { orientation: "h", x: left, y: 1.0, yanchor: "bottom", font: { size: 15 } } };
+  let idx = 0;
+  RUNGS.forEach((r, ri) => cols.forEach((o, ci) => {
+    idx += 1; const sfx = idx === 1 ? "" : idx, x0 = left + ci * (w + gx), y1 = 1 - 0.1 - ri * (h + gy);
+    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], anchor: `y${sfx}`, range: [lo, hi], showticklabels: ri === nR - 1, fixedrange: true, nticks: 5, zeroline: !!M.zero });
+    layout[`yaxis${sfx}`] = axis({ domain: [y1 - h, y1], anchor: `x${sfx}`, showticklabels: false, showgrid: false, range: [-0.7, MODELS.length - 0.3], fixedrange: true, autorange: false });
+    if (o.key === "allocation" && r.k < 5) {
+      layout[`xaxis${sfx}`].visible = false; layout[`yaxis${sfx}`].visible = false;
+      ann.push({ text: "needs clinicians", xref: `x${sfx} domain`, yref: `y${sfx} domain`, x: 0.5, y: 0.5, showarrow: false, font: { size: 13, color: MUTED } });
+      traces.push({ type: "scatter", x: [], y: [], xaxis: `x${sfx}`, yaxis: `y${sfx}`, showlegend: false, hoverinfo: "skip" });
+      return;
+    }
+    MODELS.forEach((m, mi) => {
+      const c = cell(m.key, r.k, o.key), v = value(metric, c), e = ciOf(metric, c);
+      traces.push({ type: "scatter", mode: "markers", x: v === null ? [] : [v], y: [MODELS.length - 1 - mi], xaxis: `x${sfx}`, yaxis: `y${sfx}`,
+        marker: { color: m.color, size: 11, line: { color: SURF, width: 2 } }, error_x: { type: "data", array: [e || 0], visible: !!e, color: m.color, thickness: 2, width: 0 },
+        name: mName(m), legendgroup: m.key, showlegend: idx === 1, hovertemplate: hoverFor(metric, m, r.k, o, c) + "<extra></extra>" });
+    });
+    if (ri === 0) ann.push({ text: `<b>${o.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.905, yanchor: "bottom", showarrow: false, font: { size: 17, color: INK } });
+    if (ci === 0) ann.push({ text: `<b>Rung ${r.k}</b><br><span style="font-size:13px;color:${INK2}">${RUNGS[ri].name}</span>`, xref: "paper", yref: "paper", x: left - 0.01, xanchor: "right", y: y1 - h / 2, showarrow: false, align: "right", font: { size: 15, color: INK } });
+  }));
+  PLACEHOLDERS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), marker: { color: m.color, size: 11 }, showlegend: true, hoverinfo: "skip" }));
+  ann.push({ text: `${M.label}${M.better ? (M.better < 0 ? " · lower is better" : " · higher is better") : ""}`, xref: "paper", yref: "paper", x: left + (1 - left) / 2, y: -0.07, showarrow: false, font: { size: 15, color: INK2 } });
+  layout.annotations = ann;
+  draw("plot-B", traces, layout);
+};
+
+// ------------------------------------------------------------------ view C: rung trajectories
+buildControls("C", [
+  { label: "Metric", k: "metric", options: metricOptions(["regret", "assign", "exact", "qwk", "mae"]) },
+  { label: "Compare", k: "group", options: [["output", "Models (panel per output)"], ["model", "Outputs (panel per model)"]] },
+]);
+RENDER.C = function () {
+  const { metric, group } = state.C, M = METRICS[metric], cols = colsFor(metric);
+  const panels = group === "output" ? cols : MODELS, series = group === "output" ? MODELS : cols;
+  const n = panels.length, gap = 0.03, w = (1 - gap * (n - 1)) / n;
+  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 70, r: 20, t: 70, b: 60 }, legend: { orientation: "h", x: 0, y: 1.16 } };
+  const vals = allValues(metric); let lo = Math.min(...vals), hi = Math.max(...vals); if (M.zero) lo = Math.min(0, lo); const pad = (hi - lo) * 0.12 || 0.1;
+  panels.forEach((p, i) => {
+    const sfx = i ? i + 1 : "", x0 = i * (w + gap);
+    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], anchor: `y${sfx}`, tickvals: [1, 2, 3, 4, 5, 6], range: [0.6, 6.4], title: { text: "rung" }, fixedrange: true, showgrid: false });
+    layout[`yaxis${sfx}`] = axis({ anchor: `x${sfx}`, range: [lo - (M.zero && lo >= 0 ? pad * 0.3 : pad), hi + pad], showticklabels: i === 0, fixedrange: true,
+      title: { text: i === 0 ? M.label + (M.better < 0 ? " (lower is better)" : M.better > 0 ? " (higher is better)" : "") : "" } });
+    ann.push({ text: `<b>${group === "model" ? mName(p) : p.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 1.02, yanchor: "bottom", showarrow: false, font: { size: 17, color: p.placeholder ? MUTED : INK } });
+    if (p.placeholder) ann.push({ text: "Results pending", xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.5, showarrow: false, font: { size: 17, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 10 });
+    series.forEach((s, si) => {
+      const m = group === "output" ? s : p, o = group === "output" ? p : s;
+      const pts = RUNGS.map(r => { const c = cell(m.key, r.k, o.key); return { r: r.k, v: value(metric, c), e: ciOf(metric, c), c }; }).filter(q => q.v !== null);
+      const color = group === "output" ? m.color : o.color;
+      traces.push({ type: "scatter", mode: "lines+markers", x: pts.map(q => q.r), y: pts.map(q => q.v), xaxis: `x${sfx}`, yaxis: `y${sfx}`,
+        line: { color, width: 2.5, dash: group === "output" ? "solid" : o.dash }, marker: { color, size: 9, symbol: group === "output" ? "circle" : o.symbol, line: { color: SURF, width: 1.5 } },
+        error_y: { type: "data", array: pts.map(q => q.e || 0), visible: pts.some(q => q.e), color, thickness: 1.5, width: 4 },
+        name: group === "output" ? mName(s) : s.name, legendgroup: s.key, showlegend: i === 0,
+        hovertemplate: pts.map(q => hoverFor(metric, m, q.r, o, q.c) + "<extra></extra>") });
+    });
+  });
+  if (group === "output") PLACEHOLDERS.forEach(m => traces.push({ type: "scatter", mode: "lines+markers", x: [null], y: [null], name: mName(m), line: { color: m.color, width: 2.5 }, marker: { color: m.color, size: 9 }, showlegend: true, hoverinfo: "skip" }));
+  layout.annotations = ann;
+  draw("plot-C", traces, layout);
+};
+
+// ------------------------------------------------------------------ view D: accuracy vs decision
+buildControls("D", [
+  { label: "x", k: "x", options: [["qwk", "QWK"], ["exact", "Class agreement %"], ["mae", "Class error"]] },
+  { label: "y", k: "y", options: [["regret", "Regret"], ["assign", "Assignment %"]] },
+]);
+RENDER.D = function () {
+  const { x, y } = state.D, MX = METRICS[x], MY = METRICS[y];
+  const traces = [];
+  MODELS.forEach(m => OUTPUTS.filter(o => o.key !== "allocation").forEach(o => {
+    const pts = RUNGS.map(r => cell(m.key, r.k, o.key)).filter(c => c && value(x, c) !== null && value(y, c) !== null);
+    traces.push({ type: "scatter", mode: "markers+text", x: pts.map(c => value(x, c)), y: pts.map(c => value(y, c)), text: pts.map(c => String(c.rung)),
+      textfont: { color: "white", size: 12, family: '"Segoe UI", sans-serif' }, textposition: "middle center",
+      marker: { color: m.color, size: 24, symbol: o.symbol, line: { color: SURF, width: 2 }, opacity: 0.95 },
+      name: `${m.short} · ${o.name}`, legendgroup: m.key, showlegend: false,
+      hovertemplate: pts.map(c => `<b>${m.name}</b><br>${rungLabel(c.rung)} × ${o.name}<br>${MX.short}: ${fmt(value(x, c), MX.d)}${MX.unit}<br>${MY.short}: ${fmt(value(y, c), MY.d)}${MY.unit}<extra></extra>`) });
+  }));
+  MODELS.forEach(m => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: mName(m), marker: { color: m.color, size: 12 }, legendgroup: m.key }));
+  OUTPUTS.filter(o => o.key !== "allocation").forEach(o => traces.push({ type: "scatter", mode: "markers", x: [null], y: [null], name: o.name, marker: { color: "#8b8b86", size: 12, symbol: o.symbol } }));
+  draw("plot-D", traces, { ...BASE_LAYOUT(), margin: { l: 80, r: 30, t: 50, b: 70 },
+    xaxis: axis({ title: { text: MX.label + (MX.better < 0 ? " (lower is better)" : " (higher is better)") }, zeroline: false }),
+    yaxis: axis({ title: { text: MY.label + (MY.better < 0 ? " (lower is better)" : " (higher is better)") } }),
+    legend: { orientation: "h", x: 0, y: 1.08 } });
+};
+
+// ------------------------------------------------------------------ view E: allocation
+RENDER.E = function () {
+  const rungs = [5, 6];
+  const t1 = MODELS.map(m => ({ type: "bar", name: mName(m), x: rungs.map(r => `Rung ${r}`), y: rungs.map(r => (cell(m.key, r, "allocation") || {}).n_feasible ?? 0),
+    marker: { color: m.color, line: { color: SURF, width: 2 } }, text: rungs.map(r => { const c = cell(m.key, r, "allocation") || {}; return m.placeholder ? "pending" : `${c.n_feasible ?? 0}/${c.n_expected ?? nChunks * 3}`; }),
+    textposition: "outside", textfont: { size: 14, color: INK2 },
+    hovertemplate: rungs.map(r => { const c = cell(m.key, r, "allocation") || {}; return `<b>${m.name}</b> · Rung ${r}<br>${c.n_feasible ?? 0} feasible of ${c.n_expected ?? "?"} instances<br>${c.n_parsed ?? 0} parsed as valid JSON<extra></extra>`; }) }));
+  draw("plot-E1", t1, { ...BASE_LAYOUT(), title: { text: "Feasible LLM allocations", x: 0, font: { size: 20 } }, barmode: "group",
+    yaxis: axis({ title: { text: "instances" }, range: [0, nChunks * 3 * 1.15] }), xaxis: axis({ showgrid: false }), legend: { orientation: "h", x: 0, y: -0.1 }, margin: { l: 60, r: 10, t: 60, b: 70 } });
+  const methods = OUTPUTS, traces = [], ready = MODELS.filter(m => !m.placeholder);
+  rungs.forEach((r, ri) => methods.forEach((o, oi) => {
+    const pts = ready.map((m, mi) => ({ m, mi, c: cell(m.key, r, o.key) })).filter(q => q.c && q.c.regret_mean !== undefined && q.c.regret_mean !== null);
+    traces.push({ type: "scatter", mode: "markers", xaxis: ri ? "x2" : "x", yaxis: ri ? "y2" : "y",
+      x: pts.map(q => q.c.regret_mean), y: pts.map(q => q.mi + (oi - 1.5) * 0.17), error_x: { type: "data", array: pts.map(q => q.c.regret_ci || 0), color: o.color, thickness: 1.5, width: 0 },
+      marker: { color: o.color, symbol: o.symbol, size: 14, line: { color: SURF, width: 1.5 } }, name: o.name, legendgroup: o.key, showlegend: ri === 0,
+      hovertemplate: pts.map(q => hoverFor("regret", q.m, r, o, q.c) + "<extra></extra>") });
+  }));
+  draw("plot-E2", traces, { ...BASE_LAYOUT(), title: { text: "Decision regret: LLM allocation vs. OR on each output", x: 0, font: { size: 20 } },
+    grid: { rows: 2, columns: 1, pattern: "independent", roworder: "top to bottom" },
+    xaxis: axis({ title: { text: "" }, rangemode: "tozero" }), xaxis2: axis({ title: { text: "regret (lower is better)" }, rangemode: "tozero", matches: "x" }),
+    yaxis: axis({ showgrid: false, autorange: "reversed", zeroline: false, title: { text: "Rung 5" }, tickvals: ready.map((_, i) => i), ticktext: ready.map(m => m.name), tickfont: { size: 15, color: INK } }),
+    yaxis2: axis({ showgrid: false, autorange: "reversed", zeroline: false, title: { text: "Rung 6" }, tickvals: ready.map((_, i) => i), ticktext: ready.map(m => m.name), tickfont: { size: 15, color: INK } }),
+    legend: { orientation: "h", x: 0, y: 1.0, yanchor: "bottom" }, margin: { l: 150, r: 10, t: 100, b: 60 } });
+};
+
+// ------------------------------------------------------------------ coverage
+RENDER.cov = function () {
+  const rows = [], z = [], txt = [], hov = [];
+  MODELS.forEach(m => (m.placeholder ? [null] : OUTPUTS).forEach(o => {
+    if (!o) { rows.push(`${m.short} · results pending`); z.push(RUNGS.map(() => null)); txt.push(RUNGS.map(() => "")); hov.push(RUNGS.map(() => "")); return; }
+    rows.push(`${m.short} · ${o.name}`);
+    const zr = [], tr = [], hr = [];
+    RUNGS.forEach(r => {
+      const c = cell(m.key, r.k, o.key);
+      if (!c || (o.key === "allocation" && r.k < 5)) { zr.push(null); tr.push(""); hr.push(""); return; }
+      const ok = c.output === "allocation" ? (c.n_feasible ?? 0) : c.n_units, tot = c.n_expected || nChunks * 3;
+      zr.push(ok / tot); tr.push(`${ok}`);
+      const st = c.statuses ? Object.entries(c.statuses).map(([k, v]) => `${k.replace("_", " ")}: ${v}`).join("<br>") : `${c.n_parsed ?? 0} parsed, ${c.n_feasible ?? 0} feasible`;
+      hr.push(`<b>${m.name}</b><br>${rungLabel(r.k)} × ${o.name}<br>${ok}/${tot} ${o.key === "allocation" ? "feasible" : "instances solved"}<br>${st}${c.n_failed ? `<br>${c.n_failed} failed ratings` : ""}`);
+    });
+    z.push(zr); txt.push(tr); hov.push(hr);
+  }));
+  draw("plot-cov", [{ type: "heatmap", z, x: RUNGS.map(r => `R${r.k}`), y: rows, text: txt, texttemplate: "%{text}", textfont: { size: 14 }, customdata: hov,
+    hovertemplate: "%{customdata}<extra></extra>", colorscale: [[0, "#e88a84"], [0.6, "#f0efec"], [1, "#86b6ef"]], zmin: 0, zmax: 1, xgap: 3, ygap: 2,
+    colorbar: { title: { text: "share of " + nChunks * 3, side: "right", font: { size: 13 } }, thickness: 12, tickformat: ".0%", tickfont: { size: 12 } }, hoverongaps: false }],
+    { ...BASE_LAYOUT(), title: { text: `Instances evaluated per configuration (of ${nChunks * 3})`, x: 0, font: { size: 19 } }, plot_bgcolor: "#f4f4f2",
+      yaxis: axis({ autorange: "reversed", showgrid: false, tickfont: { size: 13, color: INK } }), xaxis: axis({ side: "top", showgrid: false }), margin: { l: 190, r: 10, t: 70, b: 10 } });
+};
+(function caveats() {
+  const dist = D.cells.filter(c => c.output === "distribution");
+  const failed = dist.reduce((a, c) => a + ((c.statuses || {}).solve_failed || 0), 0), total = dist.reduce((a, c) => a + (c.n_expected || 0), 0);
+  const items = [
+    `<b>Small test set:</b> ${L.used.n} clients, ${nChunks} chunks; intervals are over ${nChunks * 3} instances that share clients, so they are optimistic.`,
+    `<b>Distribution pools:</b> ${failed} of ${total} solves hit the ${D.optimization.time_limit / 60}-minute limit (marked *). Those cells average fewer, possibly easier, instances.`,
+    `<b>OR settings:</b> ${D.optimization.n_seeds} seeds, ${D.optimization.scenario_count} SAA scenarios, optimality tolerance ${D.optimization.tolerance}.`,
+    `<b>Class imbalance:</b> class 1 and class 5 are rare (${L.used.class["1"] || 0} and ${L.used.class["5"] || 0} clients), so agreement is driven by classes 2–4.`,
+    `<b>Label confidence:</b> ${L.all.confidence["High"] || 0} of ${L.all.n} labels are high confidence; the benchmark itself is uncertain.`,
+    ...PLACEHOLDERS.map(m => `<b>${m.name}:</b> ratings and allocations are complete; OR solves are still running, so its panels are placeholders.`),
+    `<b>Not yet included:</b> ${(D.pending_models || []).join(", ") || "—"} (inference running); tie-break among optimal allocations.`,
+  ];
+  document.getElementById("caveats").innerHTML = items.map(t => `<li>${t}</li>`).join("");
+  document.getElementById("next-steps").innerHTML = [
+    `Add ${(D.pending_models || ["remaining models"]).join(", ")} when inference completes`,
+    "Re-solve timed-out distribution pools with a longer limit",
+    "Tie-break step: let the LLM choose among equally optimal allocations",
+    "Break results down by clinician confidence and load profile",
+    "Scale to the main study (48 chunks) once the view is chosen",
+  ].map(t => `<li>${t}</li>`).join("");
+})();
+
+// ------------------------------------------------------------------ lazy rendering
+const SLIDE_RENDERS = { "plot-class": "labels", "plot-cross": "cross", "plot-chunks": "chunks", "plot-profiles": "profiles",
+  "plot-A": "A", "plot-B": "B", "plot-C": "C", "plot-D": "D", "plot-E1": "E", "plot-cov": "cov" };
+const done = new Set();
+function renderSlide(slide) {
+  slide.querySelectorAll(".plot").forEach(el => {
+    const key = SLIDE_RENDERS[el.id]; if (key && !done.has(key)) { done.add(key); try { RENDER[key](); } catch (err) { console.error(key, err); } }
+    else if (el.data) Plotly.Plots.resize(el);
+  });
+}
+Reveal.initialize({ width: 1600, height: 900, margin: 0.04, hash: true, slideNumber: "c/t", transition: "fade", backgroundTransition: "none",
+  controls: true, progress: true, center: false, navigationMode: "linear" });
+Reveal.on("ready", e => renderSlide(e.currentSlide));
+Reveal.on("slidechanged", e => renderSlide(e.currentSlide));
+})();
+</script>
+</body>
+</html>
