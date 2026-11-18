@@ -22,6 +22,7 @@ from .common import (
     JsonlStore,
     Workspace,
     add_workspace_argument,
+    models_config,
     now,
     write_json_atomic,
 )
@@ -80,7 +81,10 @@ def build(ws, models, keep_partial_chunks=False):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    p.add_argument("--models", nargs="+", default=list(MODEL_KEYS), choices=MODEL_KEYS)
+    # Default: the four original models. Added models (models.yaml) must be listed explicitly,
+    # together with the original four, once their ICF step has run.
+    p.add_argument("--models", nargs="+", default=list(MODEL_KEYS),
+                   choices=sorted(models_config()["models"]))
     p.add_argument("--keep-partial-chunks", action="store_true",
                    help="Keep the successful clients of a chunk that has a failed client")
     add_workspace_argument(p)

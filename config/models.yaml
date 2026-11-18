@@ -28,6 +28,18 @@ models:
     hf_id: google/medgemma-27b-text-it
     family: medgemma
     chat_template_kwargs: {}
+  llama31-8b:
+    hf_id: meta-llama/Llama-3.1-8B-Instruct
+    family: llama
+    # Gated: accept the licence on Hugging Face first. Download without original/ (the
+    # duplicate Meta-format weights). The chat template adds a fixed "Today Date" line.
+    chat_template_kwargs: {}
+  mistral-small-24b:
+    # Hugging Face-format checkpoint (config.json + chat template in tokenizer_config.json);
+    # the engine renders prompts with the Hugging Face tokenizer, not mistral_common.
+    hf_id: mistralai/Mistral-Small-3.2-24B-Instruct-2506
+    family: mistral
+    chat_template_kwargs: {}
 
 serving:
   dtype: bfloat16
