@@ -24,8 +24,9 @@ optimization:
   solver_seed: 0
   threads: 1
   # Seconds per Gurobi solve. A pool whose solve hits it is saved as status "solve_failed"
-  # (reported, not hidden); rerun those with a longer limit if needed.
-  time_limit: 600
+  # (reported, not hidden); rerun those with a longer limit if needed. Was 600; raised to 1200
+  # for the 90-client labelled study (2026-11-19).
+  time_limit: 1200
   # Stochastic (SAA) model for the distribution output. Existing default 20 scenarios; reduced to
   # 10 for the same reason as n_seeds. Seed and temperature are the existing defaults.
   scenario_count: 10

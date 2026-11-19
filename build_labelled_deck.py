@@ -10,7 +10,7 @@ Two steps, so that only aggregates leave the cluster:
            --labels-file /home/pathilda/Anonymization/Labeled_Sample.xlsx \
            --data-dir /home/pathilda/Anonymization/Labeled_chunks \
            --outputs-dir /scratch/pathilda/dr_outputs_labeled_od \
-           --models medgemma-4b qwen35-4b qwen35-27b --score-as-uniform-benchmark \
+           --models qwen35-4b qwen35-27b medgemma-4b llama31-8b --chunk-ids L1 L2 L3 L4 L5 --exclude-or distribution:balanced \
            --out /scratch/pathilda/dr_outputs_labeled_od/deck/deck_data.json
 
 2. ``render`` (anywhere; standard library only): puts the JSON into the deck template.
@@ -125,6 +125,13 @@ def collect(args):
     chunks = pd.read_excel(ws.chunks_file, dtype=object)
     chunks["client_id"] = chunks["client_id"].map(normalize_id)
     chunks["chunk_id"] = chunks["chunk_id"].map(normalize_id)
+    if args.chunk_ids:
+        wanted = [normalize_id(c) for c in args.chunk_ids]
+        unknown = sorted(set(wanted) - set(chunks["chunk_id"]))
+        if unknown:
+            raise SystemExit(f"--chunk-ids not in {ws.chunks_file}: {unknown}")
+        chunks = chunks[chunks["chunk_id"].isin(wanted)]
+    chunk_set = set(chunks["chunk_id"])
     used_ids = set(chunks["client_id"])
 
     def stats(part):
@@ -161,9 +168,24 @@ def collect(args):
         return pd.read_csv(path) if path.is_file() and path.stat().st_size > 1 else pd.DataFrame()
 
     orr, alloc = table("or_rows.csv"), table("allocation_rows.csv")
+    excluded = []  # (output, profile) pairs left out of the OR results (--exclude-or)
+    for item in args.exclude_or:
+        output, _, profile = item.partition(":")
+        if output not in RATING_OUTPUTS or profile not in PROFILE_IDS:
+            raise SystemExit(f"--exclude-or {item!r}: expected OUTPUT:PROFILE, e.g. distribution:balanced")
+        excluded.append((output, profile))
+    if not orr.empty:
+        orr = orr[orr["chunk_id"].map(normalize_id).isin(chunk_set)]
+        for output, profile in excluded:
+            orr = orr[~((orr.output == output) & (orr.profile == profile))]
+    if not alloc.empty:
+        alloc = alloc[alloc["chunk_id"].map(normalize_id).isin(chunk_set)]
     if orr.empty:
         print(f"warning: no or_rows.csv in {eval_dir}; run dr.evaluate first", file=sys.stderr)
     n_expected = len(chunk_ids) * len(PROFILE_IDS)
+
+    def kept_profiles(output):
+        return [p for p in PROFILE_IDS if (output, p) not in excluded]
 
     def predicted(record, output):
         if output == "label":
@@ -233,11 +255,14 @@ def collect(args):
         for rung in RUNGS:
             for output in RATING_OUTPUTS:
                 pairs, chunk_pairs, failed, total = {}, {}, 0, 0
-                for profile in [None] if rung <= 4 else PROFILE_IDS:
+                for profile in [None] if rung <= 4 else kept_profiles(output):
                     path = ws.rating(model, rung, output, profile)
                     if not path.is_file():
                         continue
                     for record in JsonlStore(path).records.values():
+                        chunk = normalize_id(record.get("chunk_id", str(record["key"]).split("|")[0]))
+                        if chunk not in chunk_set:
+                            continue  # outside --chunk-ids
                         total += 1
                         if not record.get("parse_ok"):
                             failed += 1
@@ -247,7 +272,6 @@ def collect(args):
                         if record.get("client_id") in label_of:
                             pair = (predicted(record, output), label_of[record["client_id"]])
                             pairs.setdefault(profile, []).append(pair)
-                            chunk = normalize_id(record.get("chunk_id", str(record["key"]).split("|")[0]))
                             chunk_pairs.setdefault((profile, chunk), []).append(pair)
                 all_pairs = [x for v in pairs.values() for x in v]
                 part = orr[(orr.model == model) & (orr.rung == rung) & (orr.output == output)] \
@@ -255,16 +279,17 @@ def collect(args):
                 units = unit_means(part)
                 cell = {"model": model, "rung": rung, "output": output,
                         "n_ratings": total, "n_failed": failed,
-                        **accuracy(all_pairs), **or_stats(units), "n_expected": n_expected,
+                        **accuracy(all_pairs), **or_stats(units),
+                        "n_expected": len(chunk_ids) * len(kept_profiles(output)),
                         "units": unit_rows(units, chunk_pairs, rung)}
                 cell["by_profile"] = {
                     p: {**or_stats(profile_part(units, p)),
                         **accuracy(pairs.get(None if rung <= 4 else p, [])),
                         "n_expected": len(chunk_ids)}
-                    for p in PROFILE_IDS}
+                    for p in kept_profiles(output)}
                 statuses = Counter()
                 for chunk_id in chunk_ids:
-                    for profile in PROFILE_IDS:
+                    for profile in kept_profiles(output):
                         path = ws.candidates(model, rung, output, profile, chunk_id)
                         statuses[json.loads(path.read_text(encoding="utf-8"))["status"]
                                  if path.is_file() else "missing"] += 1
@@ -325,6 +350,7 @@ def collect(args):
         "labels": labels,
         "benchmark_optimum": optimum,
         "uniform_benchmark": uniform,
+        "excluded_or": [{"output": o, "profile": p} for o, p in excluded],
         "cells": cells,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -382,6 +408,10 @@ def main(argv=None):
     c.add_argument("--score-as-uniform-benchmark", action="store_true",
                    help="score ratings are all identical (xgrammar range bug): drop the score "
                         "output and use its OR results as the equal-complexity benchmark")
+    c.add_argument("--chunk-ids", nargs="+", default=None,
+                   help="use only these chunks (e.g. L1 L2 L3 L4 L5)")
+    c.add_argument("--exclude-or", nargs="*", default=[], metavar="OUTPUT:PROFILE",
+                   help="leave these rating output x load profile results out, e.g. distribution:balanced")
     c.add_argument("--out", type=Path, required=True)
     r = sub.add_parser("render", help="build the HTML deck from deck_data.json")
     r.add_argument("--data", required=True)

@@ -385,8 +385,10 @@ if (D.synthetic) document.body.insertAdjacentHTML("afterbegin", '<div class="syn
 
 // ------------------------------------------------------------------ constants
 const INK = "#24334a", INK2 = "#546b86", MUTED = "#898781", GRID = "#e1e0d9", AXIS = "#c3c2b7", SURF = "#fcfcfb";
-const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a"];
-const MODELS = D.models.map((m, i) => ({ ...m, color: MODEL_COLORS[i % 3] }));
+// Fixed categorical order; all pairs checked for CVD separation (OKLab dE >= 9 simulated, >= 19 normal).
+const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#a33b74", "#7a5c00", "#4a2c8a"];
+const MODELS = D.models.map((m, i) => ({ ...m, color: MODEL_COLORS[i % MODEL_COLORS.length] }));
+const EXCLUDED_OR = D.excluded_or || [];  // [{output, profile}] left out of the OR results
 const mName = m => m.placeholder ? `${m.name} (pending)` : m.name;
 const PLACEHOLDERS = MODELS.filter(m => m.placeholder);
 const EXCLUDED = D.excluded_outputs || [];
@@ -598,6 +600,9 @@ document.getElementById("models").innerHTML = MODELS.map(m => {
     "medgemma-4b": ["Gemma 3 variant trained for medical text and images", "Used text-only", "Medical domain adaptation at small scale"],
     "qwen35-4b": ["General-purpose model, Qwen3.5 family", "Same size as MedGemma 4B: domain tuning vs. general", "Thinking mode off"],
     "qwen35-27b": ["General-purpose model, Qwen3.5 family", "About 7× the parameters of the 4B models", "Thinking mode off"],
+    "medgemma-27b": ["Gemma 3 variant trained for medical text", "Text-only 27B version", "Medical domain adaptation at large scale"],
+    "llama31-8b": ["General-purpose model, Llama 3.1 family", "Between the 4B and 27B models in size", "Widely used open-weights baseline"],
+    "mistral-small-24b": ["General-purpose model, Mistral Small 3.2", "Close in size to the 27B models", "A third model family at large scale"],
   }[m.key] || [];
   return `<div class="model-card" style="--c:${m.color}"><h3>${m.name}</h3><div class="hf">${m.hf_id}</div>${m.placeholder ? '<span class="badge">Results pending: OR solves in progress</span>' : ""}<ul>${facts.map(f => `<li>${f}</li>`).join("")}</ul></div>`;
 }).join("");
@@ -993,6 +998,7 @@ if (!UB) document.getElementById("bench-box").style.display = "none";
     `<b>Small test set:</b> ${L.used.n} clients, ${nChunks} chunks; intervals are over ${nChunks * 3} instances that share clients, so they are optimistic.`,
     `<b>Distribution pools:</b> ${failed} of ${total} solves hit the ${D.optimization.time_limit / 60}-minute limit (marked *). Those cells average fewer, possibly easier, instances.`,
     ...(UB ? [`<b>${BENCH_NAME} (dashed lines):</b> OR with every client given the same complexity (${Object.keys(UB.rating_values || {}).join(", ") || "constant"}), i.e. count balancing only; regret ${fmt(UB.regret_mean, 3)}, assignment ${fmt(UB.assign_mean, 1)}%.`] : []),
+    ...(EXCLUDED_OR.length ? [`<b>Left out:</b> ${EXCLUDED_OR.map(e => `${(OUTPUTS.find(o => o.key === e.output) || { name: e.output }).name} × ${PROFILE_NAMES[e.profile] || e.profile} initial caseloads`).join("; ")} (OR solves still running), so "all caseloads" for ${listText([...new Set(EXCLUDED_OR.map(e => (OUTPUTS.find(o => o.key === e.output) || { name: e.output }).name.toLowerCase()))])} averages over the remaining caseloads only.`] : []),
     `<b>OR settings:</b> ${D.optimization.n_seeds} seeds, ${D.optimization.scenario_count} SAA scenarios, optimality tolerance ${D.optimization.tolerance}.`,
     `<b>Class imbalance:</b> class 1 and class 5 are rare (${L.used.class["1"] || 0} and ${L.used.class["5"] || 0} clients), so agreement is driven by classes 2–4.`,
     `<b>Label confidence:</b> ${L.all.confidence["High"] || 0} of ${L.all.n} labels are high confidence; the benchmark itself is uncertain.`,

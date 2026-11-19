@@ -131,6 +131,14 @@ def main(argv=None):
     eligible = labelled[ok]
     print(f"Labelled clients: {len(frame)}; valid class: {len(labelled)}; "
           f"ICF ok for all {len(args.models)} models (eligible): {len(eligible)}")
+    if labelled.empty:
+        values = frame[class_col].dropna().astype(str).value_counts().head(8).to_dict()
+        p.error(f"no valid class in column {class_col!r} (classes {sorted(valid)} expected, as 4, "
+                f"4.0 or 'Class 4'); most common values: {values}. Pass --class-column if the "
+                "wrong column was picked.")
+    if eligible.empty:
+        p.error("no labelled client has a successful ICF profile from every model; check "
+                "--icf-outputs-dir and that the client IDs match")
 
     by_class = {int(k): sorted(g["client_id"]) for k, g in eligible.groupby("class")}
     chunks, plan, used = sample(by_class, args.n_chunks, args.chunk_size, args.seed)
