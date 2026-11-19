@@ -49,7 +49,7 @@ from .common import (
     study_config,
 )
 from .context import cohorts
-from .labels import as_class
+from .labels import as_class, blank
 from .or_bridge import (
     Solver,
     argmax_class,
@@ -63,15 +63,23 @@ from .or_bridge import (
 def benchmark_classes(args, ws):
     if args.benchmark_file:
         table = read_table(args.benchmark_file, args.benchmark_sheet)
-        result = {}
+        result, unlabelled = {}, []
         for row in table.to_dict("records"):
+            if blank(row[args.benchmark_id_column]):
+                continue
             cid = normalize_id(row[args.benchmark_id_column])
             if cid in result:
                 raise ValueError(f"Duplicate benchmark client {cid}")
+            if blank(row[args.benchmark_class_column]):
+                unlabelled.append(cid)  # no class given: not a benchmark client
+                continue
             value = as_class(row[args.benchmark_class_column])  # 4, "4" or "Class 4"
             if value not in classes_config()["ids"]:
                 raise ValueError(f"Benchmark class {value!r} for {cid} is not a configured class")
             result[cid] = value
+        if unlabelled:
+            print(f"note: {len(unlabelled)} rows without a benchmark class skipped "
+                  "(any chunk containing one is reported in notes.csv)", file=sys.stderr)
         return lambda profile: result
     model, rung, output = args.benchmark_rating.split(":")
     rung = int(rung)
