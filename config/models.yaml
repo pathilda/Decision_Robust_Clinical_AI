@@ -40,6 +40,26 @@ models:
     hf_id: mistralai/Mistral-Small-3.2-24B-Instruct-2506
     family: mistral
     chat_template_kwargs: {}
+  # Small-model extension: same families at smaller scale, plus the general Gemma 3 base
+  # of MedGemma (domain tuning vs. general at 4B) and the newer MedGemma 1.5.
+  qwen35-0.8b:
+    hf_id: Qwen/Qwen3.5-0.8B
+    family: qwen
+    chat_template_kwargs: {enable_thinking: false}
+    engine_kwargs: {gdn_prefill_backend: triton}
+  qwen35-2b:
+    hf_id: Qwen/Qwen3.5-2B
+    family: qwen
+    chat_template_kwargs: {enable_thinking: false}
+    engine_kwargs: {gdn_prefill_backend: triton}
+  gemma3-4b:
+    hf_id: google/gemma-3-4b-it
+    family: gemma
+    chat_template_kwargs: {}
+  medgemma-1.5-4b:
+    hf_id: google/medgemma-1.5-4b-it
+    family: medgemma
+    chat_template_kwargs: {}
 
 serving:
   dtype: bfloat16

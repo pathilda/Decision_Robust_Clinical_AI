@@ -52,6 +52,10 @@ MODEL_NAMES = {
     "qwen35-27b": ("Qwen3.5 27B", "Q-27B"),
     "llama31-8b": ("Llama 3.1 8B", "L-8B"),
     "mistral-small-24b": ("Mistral Small 24B", "MS-24B"),
+    "qwen35-0.8b": ("Qwen3.5 0.8B", "Q-0.8B"),
+    "qwen35-2b": ("Qwen3.5 2B", "Q-2B"),
+    "gemma3-4b": ("Gemma 3 4B", "G3-4B"),
+    "medgemma-1.5-4b": ("MedGemma 1.5 4B", "MG1.5-4B"),
 }
 # Two-sided 95% t quantiles by degrees of freedom; 1.96 beyond the table.
 T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306,
