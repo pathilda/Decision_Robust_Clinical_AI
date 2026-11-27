@@ -164,6 +164,12 @@ html, body { background: var(--bg); }
 .model-card .hf { font-family: Consolas, monospace; font-size: 15px; color: var(--ink-2); }
 .model-card ul { font-size: 21px; margin-top: 14px; }
 .model-card { min-height: 290px; }
+.models.compact { grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.models.compact .model-card { min-height: 0; padding: 10px 12px; border-top-width: 6px; }
+.models.compact .model-card h3 { font-size: 20px; }
+.models.compact .model-card .hf { font-size: 11px; overflow-wrap: anywhere; }
+.models.compact .model-card ul { font-size: 15px; margin-top: 6px; }
+.models.compact .model-card li { margin-bottom: .15em; }
 .model-card .badge { display: inline-block; margin-top: 8px; font-size: 15px; font-weight: 700; color: #8a5a10; background: #fff3d6; border: 1px solid #f0d08f; border-radius: 6px; padding: 3px 9px; }
 .settings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 18px; margin-top: 28px; font-size: 20px; }
 .settings div { background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; }
@@ -270,7 +276,7 @@ html, body { background: var(--bg); }
 
 <!-- 9. Models -->
 <section>
-  <h2><span class="kicker">Models</span>Three open-weight models, identical prompts</h2>
+  <h2><span class="kicker">Models</span><span id="models-title">Open-weight models, identical prompts</span></h2>
   <div class="models" id="models"></div>
   <div class="settings">
     <div><b>Serving</b>vLLM, bfloat16, 32k-token context</div>
@@ -315,7 +321,7 @@ html, body { background: var(--bg); }
 <!-- 12. Results B -->
 <section>
   <h2><span class="kicker">Results</span><span class="view-tag">VIEW B</span>Models side by side in every cell</h2>
-  <p class="lede">Box = spread over decision instances (chunk × initial caseload); line = median, dashed tick = mean, dots = instances. LLM allocation has its own axis.</p>
+  <p class="lede">Box = spread over instances (chunk × initial caseload); line = median, dashed tick = mean. Models run top to bottom in legend order; LLM allocation has its own axis.</p>
   <div class="ctl" data-for="B"></div>
   <div class="plot" id="plot-B" style="height:690px"></div>
 </section>
@@ -396,8 +402,11 @@ if (D.synthetic) document.body.insertAdjacentHTML("afterbegin", '<div class="syn
 
 // ------------------------------------------------------------------ constants
 const INK = "#24334a", INK2 = "#546b86", MUTED = "#898781", GRID = "#e1e0d9", AXIS = "#c3c2b7", SURF = "#fcfcfb";
-// Fixed categorical order; all pairs checked for CVD separation (OKLab dE >= 9 simulated, >= 19 normal).
-const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#a33b74", "#7a5c00", "#4a2c8a"];
+// Fixed categorical order (never cycled). The first six: all pairs OKLab dE >= 9 under simulated
+// CVD, >= 19 normal. Ten: all pairs >= 15 normal, >= 7.6 under simulated CVD, which is legal only
+// with secondary encoding, so every view also names the model (panel titles, axis labels, legends).
+const MODEL_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#a33b74", "#7a5c00", "#4a2c8a",
+                      "#2020f3", "#7a1f1f", "#55bbe7", "#df0cb5"];
 const MODELS = D.models.map((m, i) => ({ ...m, color: MODEL_COLORS[i % MODEL_COLORS.length] }));
 const EXCLUDED_OR = D.excluded_or || [];  // [{output, profile}] left out of the OR results
 const mName = m => m.placeholder ? `${m.name} (pending)` : m.name;
@@ -559,7 +568,7 @@ const L = D.labels, CLASS_IDS = D.classes.map(c => String(c.id));
 const nChunks = Object.keys(L.chunks).length;
 document.getElementById("kpis").innerHTML = [
   [L.all.n, "clients labelled by clinicians (class + confidence)"],
-  [L.n_icf_all, "with an ICF profile from all four models"],
+  [L.n_icf_all, `with an ICF profile from all ${MODELS.length} models`],
   [`${nChunks} × ${L.chunk_size}`, "class-stratified test chunks (sampled with replacement)"],
   [nChunks * 3, "decision instances per configuration (chunks × 3 load profiles)"],
 ].map(([v, l]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
@@ -614,10 +623,16 @@ document.getElementById("models").innerHTML = MODELS.map(m => {
     "medgemma-27b": ["Gemma 3 variant trained for medical text", "Text-only 27B version", "Medical domain adaptation at large scale"],
     "llama31-8b": ["General-purpose model, Llama 3.1 family", "Between the 4B and 27B models in size", "Widely used open-weights baseline"],
     "mistral-small-24b": ["General-purpose model, Mistral Small 3.2", "Close in size to the 27B models", "A third model family at large scale"],
+    "qwen35-0.8b": ["Smallest Qwen3.5 model", "Lower end of the size range", "Thinking mode off"],
+    "qwen35-2b": ["Small Qwen3.5 model", "Completes the 0.8B–27B Qwen size ladder", "Thinking mode off"],
+    "gemma3-4b": ["General-purpose Gemma 3, the base of MedGemma 4B", "Isolates the effect of medical tuning", "Used text-only"],
+    "medgemma-1.5-4b": ["Newer MedGemma release (1.5)", "Same size as MedGemma 4B", "Used text-only"],
   }[m.key] || [];
   return `<div class="model-card" style="--c:${m.color}"><h3>${m.name}</h3><div class="hf">${m.hf_id}</div>${m.placeholder ? '<span class="badge">Results pending: OR solves in progress</span>' : ""}<ul>${facts.map(f => `<li>${f}</li>`).join("")}</ul></div>`;
 }).join("");
-document.getElementById("pending-box").innerHTML = `<b>Pending</b>${(D.pending_models || []).join(", ") || "none"} (inference still running)`;
+document.getElementById("models").classList.toggle("compact", MODELS.length > 6);
+document.getElementById("models-title").textContent = `${["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][MODELS.length] || MODELS.length} open-weight models, identical prompts`;
+document.getElementById("pending-box").innerHTML = (D.pending_models || []).length ? `<b>Pending</b>${D.pending_models.join(", ")} (inference still running)` : "<b>Pending</b>none: all models complete";
 
 // load profiles
 RENDER.profiles = function () {
@@ -736,20 +751,32 @@ RENDER.A = function () {
     if (mode !== "delta" && M.better < 0) cs = cs.map(([p], j) => [p, cs[cs.length - 1 - j][1]]);
     return { g, lo, hi, cs, isAlloc };
   });
-  const n = MODELS.length, gap = 0.035, right = 0.1, w = (1 - right - gap * (n - 1)) / n;
-  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), margin: { l: 185, r: 10, t: 82, b: 20 }, plot_bgcolor: "#f4f4f2" };
+  // Up to 5 panels per row; more models wrap onto a second row (2 x 5 for ten models).
+  const n = MODELS.length, perRow = n <= 5 ? n : Math.ceil(n / 2), nRows = Math.ceil(n / perRow), compact = nRows > 1;
+  const gap = compact ? 0.025 : 0.035, right = 0.1, w = (1 - right - gap * (perRow - 1)) / perRow;
+  const PX = 600, top = compact ? 58 : 82, rowGapPx = compact ? 62 : 0;
+  const rowH = (1 - (rowGapPx / (PX - top - 20)) * (nRows - 1)) / nRows, rowGap = rowGapPx / (PX - top - 20);
+  const traces = [], ann = [], layout = { ...BASE_LAYOUT(), height: PX, margin: { l: compact ? 165 : 185, r: 10, t: top, b: 20 }, plot_bgcolor: "#f4f4f2" };
   const lastReady = ready.length ? ready[ready.length - 1].key : null;
-  const xs = cols.map(o => o.name), ys = RUNGS.map(r => rungLabel(r.k));
+  const SHORT_OUT = { label: "Label", distribution: "Dist.", score: "Score", allocation: "Alloc." };
+  const colName = o => compact ? SHORT_OUT[o.key] : o.name;
+  const xs = cols.map(colName), ys = RUNGS.map(r => compact ? `R${r.k} · ${r.name}` : rungLabel(r.k));
+  const yName = k => compact ? `R${k} · ${RUNGS[k - 1].name}` : rungLabel(k);
+  const cellFont = compact ? 12 : 15;
   MODELS.forEach((m, i) => {
-    const sfx = i ? i + 1 : "", xa = `x${sfx}`, ya = `y${sfx}`, x0 = i * (w + gap);
-    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], side: "top", showgrid: false, tickfont: { size: 14, color: INK }, fixedrange: true,
+    const sfx = i ? i + 1 : "", xa = `x${sfx}`, ya = `y${sfx}`, col = i % perRow, row = Math.floor(i / perRow);
+    const x0 = col * (w + gap), y1 = 1 - row * (rowH + rowGap);
+    layout[`xaxis${sfx}`] = axis({ domain: [x0, x0 + w], anchor: ya, side: "top", showgrid: false, tickfont: { size: compact ? 12 : 14, color: INK }, fixedrange: true, tickangle: 0,
       type: "category", categoryorder: "array", categoryarray: xs, range: [-0.5, xs.length - 0.5], visible: !m.placeholder });
-    layout[`yaxis${sfx}`] = axis({ type: "category", categoryorder: "array", categoryarray: ys, autorange: "reversed", showgrid: false,
-      showticklabels: i === 0, fixedrange: true, tickfont: { size: 15, color: INK }, visible: !m.placeholder || i === 0 });
-    ann.push({ text: `<b>${m.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: 1.075, yanchor: "bottom", showarrow: false,
-      font: { size: 19, color: m.placeholder ? MUTED : (m.color === "#1baf7a" ? "#127a55" : m.color) } });
-    if (m.placeholder) {
-      ann.push({ text: "<b>Results pending</b>", xref: "paper", yref: "paper", x: x0 + w / 2, y: 0.5, showarrow: false, font: { size: 18, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 12 });
+    layout[`yaxis${sfx}`] = axis({ domain: [y1 - rowH, y1], anchor: xa, type: "category", categoryorder: "array", categoryarray: ys, autorange: "reversed", showgrid: false,
+      showticklabels: col === 0, fixedrange: true, tickfont: { size: compact ? 13 : 15, color: INK }, visible: !m.placeholder || col === 0 });
+    const titleY = y1 + (compact ? 30 : 48) / (PX - top - 20);
+    ann.push({ text: `<b>${m.name}</b>`, xref: "paper", yref: "paper", x: x0 + w / 2, y: titleY, yanchor: "bottom", showarrow: false,
+      font: { size: compact ? 16 : 19, color: m.placeholder ? MUTED : (m.color === "#1baf7a" ? "#127a55" : m.color) } });
+    const hasData = RUNGS.some(r => cols.some(o => value(metric, cell(m.key, r.k, o.key), prof) !== null));
+    if (m.placeholder || !hasData) {
+      ann.push({ text: m.placeholder ? "<b>Results pending</b>" : "<b>No results</b><br>rerun dr.evaluate", xref: "paper", yref: "paper", x: x0 + w / 2, y: y1 - rowH / 2,
+        showarrow: false, font: { size: compact ? 14 : 18, color: INK2 }, bgcolor: "white", bordercolor: AXIS, borderpad: 10 });
       return;
     }
     groups.forEach((G, gi) => {
@@ -761,7 +788,7 @@ RENDER.A = function () {
       traces.push({ type: "heatmap", x: xs, y: ys, z: zFull, xaxis: xa, yaxis: ya, xgap: 3, ygap: 3, zmin: G.lo, zmax: G.hi, colorscale: G.cs,
         showscale: m.key === lastReady,
         colorbar: { thickness: 12, len: two ? (gi ? 0.36 : 0.56) : 0.9, y: two ? (gi ? 0 : 1) : 0.5, yanchor: two ? (gi ? "bottom" : "top") : "middle",
-          x: x0 + w + 0.012, xanchor: "left", xpad: 4, tickfont: { size: 12, color: INK2 },
+          x: 1 - right + 0.012, xanchor: "left", xpad: 4, tickfont: { size: 12, color: INK2 },
           title: { text: (G.isAlloc ? "LLM allocation" : (two ? "Label & distribution" : "")) + (mode === "delta" ? " · better →" : (M.better < 0 ? " · ↓ better" : M.better > 0 ? " · ↑ better" : "")), side: "right", font: { size: 12, color: INK2 } } },
         customdata: RUNGS.map(r => cols.map(o => hoverFor(metric, m, r.k, o, cell(m.key, r.k, o.key), prof) +
           (mode === "delta" ? "<br>change vs. R1 × Label: " + fmt(val(m, r.k, o), M.d) : ""))),
@@ -774,7 +801,7 @@ RENDER.A = function () {
         const zz = zc[ri][ci];
         const pos = zz === null ? 0 : (zz - G.lo) / (G.hi - G.lo);
         const dark = mode === "delta" ? Math.abs(pos - 0.5) > 0.32 : (M.better < 0 ? pos < 0.38 : pos > 0.62);
-        ann.push({ text: t, x: o.name, y: rungLabel(r.k), xref: xa, yref: ya, showarrow: false, font: { size: 15, color: dark ? "white" : INK } });
+        ann.push({ text: t, x: colName(o), y: yName(r.k), xref: xa, yref: ya, showarrow: false, font: { size: cellFont, color: dark ? "white" : INK } });
       }));
     });
   });
@@ -827,7 +854,7 @@ RENDER.B = function () {
       const vals = unitVals(metric, cell(m.key, r.k, o.key), prof);
       traces.push({ type: "box", orientation: "h", x: vals, y: vals.map(() => m.short), xaxis: `x${sfx}`, yaxis: `y${sfx}`, ...boxStyle(m.color),
         width: 0.7, name: mName(m), legendgroup: m.key, showlegend: false,
-        hoverinfo: "x", hoverlabel: { namelength: 0 } });
+        hovertemplate: `<b>${m.name}</b> %{x:.3f}<extra></extra>` });
     });
     if (ri === 0) ann.push({ text: `<b>${o.name}</b>${isAlloc ? ' <span style="font-size:13px">(own scale)</span>' : ""}`, xref: "paper", yref: "paper", x: x0 + w / 2, y: top + 0.005, yanchor: "bottom", showarrow: false, font: { size: 17, color: INK } });
     if (ci === 0) ann.push({ text: `<b>Rung ${r.k}</b><br><span style="font-size:13px;color:${INK2}">${RUNGS[ri].name}</span>`, xref: "paper", yref: "paper", x: left - 0.01, xanchor: "right", y: y1 - h / 2, showarrow: false, align: "right", font: { size: 15, color: INK } });
@@ -863,18 +890,22 @@ RENDER.C = function () {
     cols.forEach((o, i) => panels.push({ title: o.name + (o.key === "allocation" ? " (own scale)" : ""), x: [i * (w + gap), i * (w + gap) + w], y: [0, 1],
       range: o.key === "allocation" ? rAlloc : rRating, series: MODELS.map(m => ({ m, o })), yTitle: i === 0, bottom: true }));
   } else {
-    const n = MODELS.length, gap = 0.04, w = (1 - gap * (n - 1)) / n;
+    // Up to 5 models per row; more wrap onto a second row.
+    const n = MODELS.length, perRow = n <= 5 ? n : Math.ceil(n / 2), nRows = Math.ceil(n / perRow), compact = nRows > 1;
+    const gap = compact ? 0.035 : 0.04, w = (1 - gap * (perRow - 1)) / perRow, gapY = compact ? 0.09 : 0, bandH = (1 - gapY * (nRows - 1)) / nRows;
     MODELS.forEach((m, i) => {
-      const x = [i * (w + gap), i * (w + gap) + w];
-      panels.push({ title: mName(m), x, y: allocCol ? [0.4, 1] : [0, 1], range: rRating, series: ratingCols.map(o => ({ m, o })), yTitle: i === 0, placeholder: m.placeholder, bottom: !allocCol });
-      if (allocCol) panels.push({ title: "LLM allocation (own scale)", small: true, x, y: [0, 0.27], range: rAlloc, series: [{ m, o: allocCol }], yTitle: false, placeholder: m.placeholder, bottom: true });
+      const col = i % perRow, row = Math.floor(i / perRow), lastRow = row === nRows - 1;
+      const x = [col * (w + gap), col * (w + gap) + w], b0 = 1 - row * (bandH + gapY) - bandH;
+      const at = (lo, hi) => [b0 + lo * bandH, b0 + hi * bandH];
+      panels.push({ title: mName(m), x, y: allocCol ? at(0.4, 1) : at(0, 1), range: rRating, series: ratingCols.map(o => ({ m, o })), yTitle: i === 0, placeholder: m.placeholder, bottom: !allocCol && lastRow, noTicks: compact && !!allocCol });
+      if (allocCol) panels.push({ title: compact ? "LLM alloc. (own scale)" : "LLM allocation (own scale)", small: true, x, y: at(0, compact ? 0.24 : 0.27), range: rAlloc, series: [{ m, o: allocCol }], yTitle: false, placeholder: m.placeholder, bottom: lastRow });
     });
   }
   const traces = [], ann = [], shapes = [], seen = new Set();
   const layout = { ...BASE_LAYOUT(), margin: { l: 80, r: 20, t: 70, b: 60 }, legend: { orientation: "h", x: 0, y: 1.14 } };
   panels.forEach((p, i) => {
     const sfx = i ? i + 1 : "";
-    layout[`xaxis${sfx}`] = axis({ domain: p.x, anchor: `y${sfx}`, tickvals: [1, 2, 3, 4, 5, 6], range: [0.6, 6.4], title: { text: p.bottom ? "rung" : "" }, fixedrange: true, showgrid: false });
+    layout[`xaxis${sfx}`] = axis({ domain: p.x, anchor: `y${sfx}`, tickvals: [1, 2, 3, 4, 5, 6], range: [0.6, 6.4], title: { text: p.bottom ? "rung" : "" }, fixedrange: true, showgrid: false, showticklabels: !p.noTicks });
     layout[`yaxis${sfx}`] = axis({ domain: p.y, anchor: `x${sfx}`, range: p.range, fixedrange: true, nticks: p.small ? 4 : 7,
       title: { text: p.yTitle ? M.label + betterText(M) : "" } });
     ann.push({ text: p.small ? p.title : `<b>${p.title}</b>`, xref: "paper", yref: "paper", x: (p.x[0] + p.x[1]) / 2, y: p.y[1] + 0.01, yanchor: "bottom", showarrow: false,
@@ -999,7 +1030,7 @@ RENDER.cov = function () {
     hovertemplate: "%{customdata}<extra></extra>", colorscale: [[0, "#e88a84"], [0.6, "#f0efec"], [1, "#86b6ef"]], zmin: 0, zmax: 1, xgap: 3, ygap: 2,
     colorbar: { title: { text: "share of " + nChunks * 3, side: "right", font: { size: 13 } }, thickness: 12, tickformat: ".0%", tickfont: { size: 12 } }, hoverongaps: false }],
     { ...BASE_LAYOUT(), title: { text: `Instances evaluated per configuration (of ${nChunks * 3})`, x: 0, font: { size: 19 } }, plot_bgcolor: "#f4f4f2",
-      yaxis: axis({ autorange: "reversed", showgrid: false, tickfont: { size: 13, color: INK } }), xaxis: axis({ side: "top", showgrid: false }), margin: { l: 190, r: 10, t: 70, b: 10 } });
+      yaxis: axis({ autorange: "reversed", showgrid: false, tickmode: "array", tickvals: rows, ticktext: rows, tickfont: { size: rows.length > 24 ? 11 : 13, color: INK } }), xaxis: axis({ side: "top", showgrid: false }), margin: { l: 190, r: 10, t: 70, b: 10 } });
 };
 if (!UB) document.getElementById("bench-box").style.display = "none";
 (function caveats() {
@@ -1014,11 +1045,11 @@ if (!UB) document.getElementById("bench-box").style.display = "none";
     `<b>Class imbalance:</b> class 1 and class 5 are rare (${L.used.class["1"] || 0} and ${L.used.class["5"] || 0} clients), so agreement is driven by classes 2–4.`,
     `<b>Label confidence:</b> ${L.all.confidence["High"] || 0} of ${L.all.n} labels are high confidence; the benchmark itself is uncertain.`,
     ...PLACEHOLDERS.map(m => `<b>${m.name}:</b> ratings and allocations are complete; OR solves are still running, so its panels are placeholders.`),
-    `<b>Not yet included:</b> ${(D.pending_models || []).join(", ") || "—"} (inference running); tie-break among optimal allocations.`,
+    `<b>Not yet included:</b> ${(D.pending_models || []).length ? D.pending_models.join(", ") + " (inference running); " : ""}tie-break among optimal allocations.`,
   ];
   document.getElementById("caveats").innerHTML = items.map(t => `<li>${t}</li>`).join("");
   document.getElementById("next-steps").innerHTML = [
-    `Add ${(D.pending_models || ["remaining models"]).join(", ")} when inference completes`,
+    ...((D.pending_models || []).length ? [`Add ${D.pending_models.join(", ")} when inference completes`] : []),
     "Re-solve timed-out distribution pools with a longer limit",
     "Tie-break step: let the LLM choose among equally optimal allocations",
     "Break results down by clinician label confidence",
