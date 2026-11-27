@@ -356,6 +356,17 @@ html, body { background: var(--bg); }
   </div>
 </section>
 
+<!-- 16b. Failures -->
+<section id="failures-slide">
+  <h2><span class="kicker">Caveats</span>Where the pipeline fails, per model</h2>
+  <div class="ctl" data-for="F"></div>
+  <div class="cols c2">
+    <div><div class="plot" id="plot-F1" style="height:600px"></div></div>
+    <div><div class="plot" id="plot-F2" style="height:600px"></div></div>
+  </div>
+  <div class="highlights" id="hl-F"></div>
+</section>
+
 <!-- 17. Discussion -->
 <section>
   <h2><span class="kicker">Discussion</span>Choosing the results view, and next steps</h2>
@@ -1015,9 +1026,119 @@ if (!UB) document.getElementById("bench-box").style.display = "none";
   ].map(t => `<li>${t}</li>`).join("");
 })();
 
+// ------------------------------------------------------------------ failures
+// Status colours are reserved for failure states; every failure segment also has a hatch,
+// a legend entry and a count in its tooltip, so no state is identified by colour alone.
+const FAIL = D.failures || {};
+const FAIL_MODELS = MODELS.filter(m => FAIL[m.key]);
+const OR_STATUS = [
+  ["ok", "Solved", "#cfe0f5", ""],
+  ["solve_failed", "Solve failed (time limit)", "#e9a21a", ""],
+  ["incomplete_ratings", "Blocked by failed ratings", "#c43c3c", "/"],
+  ["infeasible_capacity", "Infeasible capacity", "#4a2c8a", "x"],
+  ["missing", "Not run", "#8b8b86", "."],
+];
+const RATING_REASONS = [
+  ["truncated at token limit", "Truncated at token limit", "#c43c3c", "/"],
+  ["invalid JSON", "Invalid JSON", "#e9a21a", ""],
+  ["failed schema check", "Failed schema check", "#4a2c8a", "x"],
+  ["prompt too long", "Prompt too long", "#546b86", "-"],
+  ["unknown", "Unknown", "#8b8b86", "."],
+];
+const ALLOC_BUCKETS = [
+  ["no valid output", "No valid output", "#e9a21a", ""],
+  ["infeasible", "Infeasible allocation", "#c43c3c", "/"],
+  ["missing", "Not run", "#8b8b86", "."],
+];
+const failOutputs = o => o === "all" ? ["label", "distribution", "score"] : [o];
+const pattern = p => p ? { shape: p, fillmode: "overlay", fgcolor: "white", fgopacity: 0.5, size: 8, solidity: 0.25 } : undefined;
+state.F = { output: "all", unit: "pct", stage: "ratings" };
+buildControls("F", [
+  { label: "Rating output", k: "output", options: [["all", "All"], ["label", "Label"], ["distribution", "Distribution"], ["score", "Score"]] },
+  { label: "Right panel", k: "stage", options: [["ratings", "LLM ratings"], ["alloc", "LLM allocations"]] },
+  { label: "Show", k: "unit", options: [["pct", "Percent"], ["n", "Counts"]] },
+]);
+function stackedBars(rows, cats, unit, hoverExtra) {
+  // rows: [{m, total, counts: {cat: n}}]; one trace per category, models on the y axis.
+  return cats.map(([key, name, color, pat]) => {
+    const counts = rows.map(r => r.counts[key] || 0);
+    const xs = rows.map((r, i) => unit === "pct" ? (r.total ? 100 * counts[i] / r.total : 0) : counts[i]);
+    return { type: "bar", orientation: "h", name, x: xs, y: rows.map(r => r.m.name),
+      marker: { color, line: { color: SURF, width: 2 }, pattern: pattern(pat) },
+      text: counts.map((n, i) => n && xs[i] >= (unit === "pct" ? 6 : Math.max(...rows.map(r => r.total)) * 0.06) ? String(n) : ""),
+      textposition: "inside", insidetextanchor: "middle", textfont: { size: 13, color: key === "ok" ? INK : "white" },
+      hovertemplate: rows.map((r, i) => `<b>${r.m.name}</b><br>${name}: <b>${counts[i]}</b> of ${r.total} (${r.total ? (100 * counts[i] / r.total).toFixed(1) : "0"}%)` +
+        (hoverExtra ? hoverExtra(r, key) : "") + "<extra></extra>") };
+  });
+}
+function failLayout(title, unit, xTitle) {
+  return { ...BASE_LAYOUT(), barmode: "stack", bargap: 0.28, title: { text: title, x: 0, font: { size: 19, color: INK } },
+    xaxis: axis({ title: { text: unit === "pct" ? xTitle + " (%)" : xTitle }, rangemode: "tozero", ...(unit === "pct" ? { range: [0, 100] } : {}) }),
+    yaxis: axis({ autorange: "reversed", showgrid: false, tickfont: { size: 15, color: INK } }),
+    legend: { orientation: "h", x: 0, y: -0.2, yanchor: "top", font: { size: 14 }, traceorder: "normal" }, margin: { l: 150, r: 15, t: 50, b: 110 } };
+}
+RENDER.F = function () {
+  const { output, unit, stage } = state.F, outs = failOutputs(output);
+  // Left: OR pools by status
+  const orRows = FAIL_MODELS.map(m => {
+    const counts = {};
+    outs.forEach(o => Object.entries((FAIL[m.key].or || {})[o] || {}).forEach(([k, v]) => counts[k] = (counts[k] || 0) + v));
+    return { m, counts, total: FAIL[m.key].or_expected * outs.length };
+  });
+  const extraStatus = [...new Set(orRows.flatMap(r => Object.keys(r.counts)))].filter(k => !OR_STATUS.some(s => s[0] === k))
+    .map(k => [k, k.replace(/_/g, " "), "#5f5e5a", "\\"]);
+  draw("plot-F1", stackedBars(orRows, [...OR_STATUS, ...extraStatus], unit, (r, key) => {
+    const f = FAIL[r.m.key];
+    if (key === "solve_failed" && Object.keys(f.solve_errors || {}).length)
+      return "<br>errors: " + Object.entries(f.solve_errors).map(([e, n]) => `${esc(e)} (${n})`).join("<br>");
+    if (key === "incomplete_ratings") return `<br>${f.failed_ratings_in_blocked_pools} failed client ratings behind these pools (all outputs)`;
+    return "";
+  }), failLayout(`OR pools by status · ${output === "all" ? "all outputs" : output}`, unit, "pools"));
+  // Right: LLM ratings or LLM allocations by failure reason
+  let rows, cats, title, xTitle;
+  if (stage === "ratings") {
+    rows = FAIL_MODELS.map(m => {
+      const counts = {}; let total = 0;
+      outs.forEach(o => { const r = (FAIL[m.key].ratings || {})[o] || {}; total += r.n || 0;
+        Object.entries(r.reasons || {}).forEach(([k, v]) => counts[k] = (counts[k] || 0) + v); });
+      return { m, counts, total };
+    });
+    cats = RATING_REASONS; title = `Failed LLM ratings · ${output === "all" ? "all outputs" : output}`; xTitle = "ratings";
+  } else {
+    rows = FAIL_MODELS.map(m => {
+      const a = FAIL[m.key].alloc || {}, counts = {}, detail = {};
+      Object.entries(a.reasons || {}).forEach(([k, v]) => {
+        const b = ALLOC_BUCKETS.find(x => k.startsWith(x[0])) || ALLOC_BUCKETS[0];
+        counts[b[0]] = (counts[b[0]] || 0) + v; (detail[b[0]] = detail[b[0]] || []).push(`${esc(k)} (${v})`);
+      });
+      return { m, counts, total: a.expected || 0, detail };
+    });
+    cats = ALLOC_BUCKETS; title = "Failed LLM allocations (rungs 5–6)"; xTitle = "allocations";
+  }
+  const lay = failLayout(title, unit, xTitle);
+  if (unit === "pct") {
+    const top = Math.max(1, ...rows.map(r => r.total ? 100 * Object.values(r.counts).reduce((a, b) => a + b, 0) / r.total : 0));
+    lay.xaxis.range = [0, Math.min(100, top * 1.15)];
+  }
+  draw("plot-F2", stackedBars(rows, cats, unit, (r, key) => r.detail && r.detail[key] ? "<br>" + r.detail[key].join("<br>") : ""), lay);
+  // Summary line
+  const sum = (rs, keys) => rs.reduce((a, r) => a + keys.reduce((b, k) => b + (r.counts[k] || 0), 0), 0);
+  const orTotal = orRows.reduce((a, r) => a + r.total, 0);
+  const notOk = orTotal - sum(orRows, ["ok"]);
+  const worst = [...orRows].sort((a, b) => (b.total - (b.counts.ok || 0)) - (a.total - (a.counts.ok || 0)))[0];
+  const rTot = rows.reduce((a, r) => a + r.total, 0), rFail = rows.reduce((a, r) => a + Object.values(r.counts).reduce((x, y) => x + y, 0), 0);
+  document.getElementById("hl-F").innerHTML = FAIL_MODELS.length ? `<b>OR pools:</b> ${notOk} of ${orTotal} not solved (${(100 * notOk / (orTotal || 1)).toFixed(1)}%): ` +
+    `${sum(orRows, ["solve_failed"])} hit the time limit, ${sum(orRows, ["incomplete_ratings"])} blocked by failed ratings` +
+    (sum(orRows, ["missing"]) ? `, ${sum(orRows, ["missing"])} not run` : "") +
+    (worst && worst.total - (worst.counts.ok || 0) > 0 ? `; most affected: ${worst.m.name}.` : ".") +
+    ` &nbsp;·&nbsp; <b>${stage === "ratings" ? "LLM ratings" : "LLM allocations"}:</b> ${rFail} of ${rTot} failed. ` +
+    `<span class="small">One failed rating blocks the whole ${L.chunk_size}-client pool it belongs to.${EXCLUDED_OR.length ? " Includes the pools left out of the results views." : ""}</span>`
+    : "No failure data: rebuild deck_data.json with the current build_labelled_deck.py collect.";
+};
+
 // ------------------------------------------------------------------ lazy rendering
 const SLIDE_RENDERS = { "plot-class": "labels", "plot-profiles": "profiles",
-  "plot-A": "A", "plot-B": "B", "plot-C": "C", "plot-D": "D", "plot-E1": "E", "plot-cov": "cov" };
+  "plot-A": "A", "plot-B": "B", "plot-C": "C", "plot-D": "D", "plot-E1": "E", "plot-cov": "cov", "plot-F1": "F" };
 const done = new Set();
 function renderSlide(slide) {
   slide.querySelectorAll(".plot").forEach(el => {

@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import statistics
 import sys
 import urllib.request
@@ -311,6 +312,9 @@ def collect(args):
                                           "n_expected": len(chunk_ids)} for p in PROFILE_IDS}
             cells.append(cell)
 
+    failures = collect_failures(ws, args, chunk_set, chunk_ids, normalize_id, JsonlStore,
+                                RUNGS, RATING_OUTPUTS, PROFILE_IDS, ALLOCATION_RUNGS)
+
     uniform = None
     if benchmark_output:
         part = orr[orr.output == benchmark_output] if not orr.empty else orr
@@ -356,12 +360,99 @@ def collect(args):
         "uniform_benchmark": uniform,
         "excluded_or": [{"output": o, "profile": p} for o, p in excluded],
         "cells": cells,
+        "failures": failures,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=1), encoding="utf-8")
     print(f"wrote {args.out} ({len(cells)} cells, labels n={labels['all']['n']}, "
           f"used n={labels['used']['n']})")
     return 0
+
+
+def reason_text(text, limit=90):
+    """Error text as an aggregate category: numbers (counts, IDs, values) become '#'."""
+    return re.sub(r"\d+(?:\.\d+)?", "#", " ".join(str(text).split()))[:limit] or "unknown"
+
+
+def rating_reason(record):
+    if record.get("skipped_reason"):
+        return record["skipped_reason"].replace("_", " ")
+    errors = record.get("errors") or []
+    last = str(errors[-1]) if errors else ""
+    if last.startswith("truncated"):
+        return "truncated at token limit"
+    if last.startswith("invalid JSON"):
+        return "invalid JSON"
+    return "failed schema check" if last else "unknown"
+
+
+def collect_failures(ws, args, chunk_set, chunk_ids, normalize_id, JsonlStore,
+                     rungs, outputs, profiles, allocation_rungs):
+    """Per model: OR pool statuses, failed LLM ratings and LLM allocations, with reasons.
+
+    Covers every rung x output x load profile in the selected chunks, including the pairs
+    left out of the results with --exclude-or. Only counts and reason categories are kept.
+    """
+    result = {}
+    for model in args.models:
+        if model in args.placeholder_models:
+            continue
+        pools = {o: Counter() for o in outputs}
+        solve_errors, blocked = Counter(), 0
+        ratings = {o: {"n": 0, "failed": 0, "reasons": Counter()} for o in outputs}
+        for rung in rungs:
+            for output in outputs:
+                for profile in profiles:
+                    for chunk_id in chunk_ids:
+                        path = ws.candidates(model, rung, output, profile, chunk_id)
+                        if not path.is_file():
+                            pools[output]["missing"] += 1
+                            continue
+                        pool = json.loads(path.read_text(encoding="utf-8"))
+                        pools[output][pool.get("status", "unknown")] += 1
+                        if pool.get("status") == "solve_failed":
+                            solve_errors[reason_text(pool.get("error", ""))] += 1
+                        elif pool.get("status") == "incomplete_ratings":
+                            blocked += len(pool.get("problems", []))
+                for profile in [None] if rung <= 4 else profiles:
+                    path = ws.rating(model, rung, output, profile)
+                    if not path.is_file():
+                        continue
+                    for record in JsonlStore(path).records.values():
+                        chunk = normalize_id(record.get("chunk_id", str(record["key"]).split("|")[0]))
+                        if chunk not in chunk_set:
+                            continue
+                        ratings[output]["n"] += 1
+                        if not record.get("parse_ok"):
+                            ratings[output]["failed"] += 1
+                            ratings[output]["reasons"][rating_reason(record)] += 1
+        alloc = {"n": 0, "expected": len(chunk_ids) * len(profiles) * len(allocation_rungs),
+                 "reasons": Counter()}
+        for rung in allocation_rungs:
+            for profile in profiles:
+                path = ws.allocation(model, rung, profile)
+                store = JsonlStore(path) if path.is_file() else None
+                for chunk_id in chunk_ids:
+                    record = store.get(str(chunk_id)) if store else None
+                    if record is None:
+                        alloc["reasons"]["missing"] += 1
+                        continue
+                    alloc["n"] += 1
+                    if not record.get("parse_ok"):
+                        alloc["reasons"]["no valid output: " + rating_reason(record)] += 1
+                    elif not record.get("feasible"):
+                        kinds = sorted({str(v).split(":")[0].replace("_", " ")
+                                        for v in record.get("violations", [])}) or ["infeasible"]
+                        alloc["reasons"]["infeasible: " + ", ".join(kinds)] += 1
+        result[model] = {
+            "or": {o: dict(c) for o, c in pools.items()},
+            "or_expected": len(rungs) * len(profiles) * len(chunk_ids),
+            "solve_errors": dict(solve_errors.most_common(6)),
+            "failed_ratings_in_blocked_pools": blocked,
+            "ratings": {o: {**v, "reasons": dict(v["reasons"])} for o, v in ratings.items()},
+            "alloc": {**alloc, "reasons": dict(alloc["reasons"])},
+        }
+    return result
 
 
 # ----------------------------------------------------------------------------- render

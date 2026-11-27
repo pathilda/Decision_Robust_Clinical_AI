@@ -19,6 +19,9 @@
 set -uo pipefail
 OUTPUTS="$1"; DATA="$2"; shift 2
 PARALLEL="${PARALLEL:-$(nproc)}"
+# Optional: CHUNK_IDS="L1 L2 L3 L4 L5" limits the pools to those chunks (default: every chunk
+# in <DATA_DIR>/chunks.xlsx).
+CHUNK_ARGS="${CHUNK_IDS:+--chunk-ids $CHUNK_IDS}"
 module load python/3.11.5 2>/dev/null || true
 export PYTHONDONTWRITEBYTECODE=1
 # Run from the repository: the script's own parent folder when run with bash (OnDemand sessions
@@ -42,7 +45,7 @@ for model in "$@"; do
   done
 done | xargs -P "$PARALLEL" -L 1 bash -c '
   python -m dr.candidates --model "$0" --rung "$1" --source "$2" --profile "$3" \
-    --outputs-dir "'"$OUTPUTS"'" --data-dir "'"$DATA"'" \
+    --outputs-dir "'"$OUTPUTS"'" --data-dir "'"$DATA"'" '"$CHUNK_ARGS"' \
     > "'"$LOGS"'/$0-r$1-$2-$3.log" 2>&1'
 
 # A finished process prints a {"step": "candidates", ...} summary; any log without one crashed.
